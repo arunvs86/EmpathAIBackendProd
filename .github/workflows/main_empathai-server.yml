@@ -52,4 +52,4 @@ jobs:
           app-name: 'EmpathAI-server'
           slot-name: 'Production'
           package: .
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_1A248F9C65EB4742A97FB9B8BE1C393C }}
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_D3F553CD58C94B81AAF7803C19985150 }}
