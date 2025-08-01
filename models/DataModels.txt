@@ -1,0 +1,909 @@
+EMPATHAI data models
+
+
+**********************
+    POSTGRE MODELS
+**********************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+import User from "./User.js";
+
+const Admins = sequelize.define("Admins", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    permissions: {
+        type: DataTypes.ARRAY(DataTypes.STRING),
+        allowNull: false,
+        defaultValue: ["ban_users", "remove_posts","approve_therapists"],
+    },
+    last_active: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+User.hasOne(Admins, {foreignKey:"user_id",onDelete:"CASCADE"})
+Admins.belongsTo(User, {foreignKey:"user_id"})
+
+export default Admins;
+
+
+******************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const AdminActions = sequelize.define("AdminActions", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    admin_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users", 
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    action_type: {
+        type: DataTypes.ENUM("ban_user", "unban_user", "remove_post", "warn_user", "resolve_violation"),
+        allowNull: false,
+    },
+    target_user_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    target_post_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+    },
+    violation_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "UserViolations",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    reason: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+export default AdminActions;
+
+
+***************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const Appointments = sequelize.define("Appointments", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  user_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: { model: "Users", key: "id" },
+    onDelete: "CASCADE",
+  },
+  therapist_id: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: { model: "Therapists", key: "id" },
+    onDelete: "CASCADE",
+  },
+  scheduled_at: {
+    type: DataTypes.DATE,
+    allowNull: false,
+  },
+  session_duration: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 60,
+  },
+  session_type: {
+    type: DataTypes.ENUM("text", "voice", "video"),
+    allowNull: false,
+    defaultValue: "text",
+  },
+  status: {
+    type: DataTypes.ENUM(
+      "pending",
+      "confirmed",         // ← new
+      "rejected",          // ← new
+      "completed",
+      "cancelled",
+      "no_show"
+    ),
+    defaultValue: "pending",
+  },
+  // questionnaire fields:
+  primary_concern: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  attended_before: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+  session_goals: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    allowNull: true,
+  },
+  additional_details: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  deleted_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+}, {
+  timestamps: false,
+  indexes: [
+    {
+      name: "therapist_slot_status_idx",
+      fields: ["therapist_id", "scheduled_at", "status"],
+    },
+  ],
+});
+
+export default Appointments;
+
+*****************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+import User from "./User.js"; 
+
+const Bot = sequelize.define("Bot", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    bot_type: {
+        type: DataTypes.ENUM("chatbot", "moderation_bot", "recommendation_ai"),
+        allowNull: false,
+    },
+    status: {
+        type: DataTypes.ENUM("active", "inactive"),
+        defaultValue: "active",
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+User.hasOne(Bot, { foreignKey: "user_id", onDelete: "CASCADE" });
+Bot.belongsTo(User, { foreignKey: "user_id" });
+
+export default Bot;
+
+
+**************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const Donations = sequelize.define("Donations", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    donor_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    therapist_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "Therapists",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    initiative_name: {
+        type: DataTypes.STRING(255), 
+        allowNull: true,
+    },
+    amount: {
+        type: DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+    },
+    payment_method: {
+        type: DataTypes.ENUM("stripe", "paypal"),
+        allowNull: false,
+    },
+    transaction_status: {
+        type: DataTypes.ENUM("pending", "completed", "failed"),
+        defaultValue: "pending",
+    },
+    transaction_id: {
+        type: DataTypes.STRING(255), 
+        allowNull: false,
+        unique: true,
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+export default Donations;
+
+
+**************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+import User from "./User.js";
+
+const Therapist = sequelize.define(
+  "Therapist",
+  {
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    user_id: {
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "Users",
+        key: "id",
+      },
+      onDelete: "CASCADE",
+    },
+    
+    experience_years: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    license_number: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
+    },
+    languages_spoken: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: true,
+    },
+    session_duration: {
+      type: DataTypes.INTEGER,
+      defaultValue: 60,
+    },
+    appointment_types: {
+      type: DataTypes.ARRAY(DataTypes.STRING),
+      allowNull: false,
+      defaultValue: ["text", "voice"],
+    },
+    verified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    availability_preference: {
+      type: DataTypes.ENUM("weekly_schedule", "custom_dates"),
+      defaultValue: "weekly_schedule",
+    },
+    ratings: {
+      type: DataTypes.FLOAT,
+      defaultValue: 0,
+      validate: { min: 0, max: 5 },
+    },
+    created_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      allowNull: false,
+    },
+    updated_at: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+      allowNull: false,
+    },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+  },
+  {
+    timestamps: true,
+    paranoid: true,
+  }
+);
+
+User.hasOne(Therapist, { foreignKey: "user_id", onDelete: "CASCADE" });
+Therapist.belongsTo(User, { foreignKey: "user_id" });
+
+export default Therapist;
+
+*************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const TherapistAvailability = sequelize.define("TherapistAvailability", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    therapist_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Therapists",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    availability_type: {
+        type: DataTypes.ENUM("manual", "ai_generated"),
+        defaultValue: "manual",
+    },
+    selected_dates: {
+        type: DataTypes.ARRAY(DataTypes.DATEONLY), 
+        allowNull: true,
+    },
+    selected_time_slots: {
+        type: DataTypes.JSONB,
+        allowNull: true,
+    },
+    ai_input_text: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    ai_processed_slots: {
+        type: DataTypes.JSONB, 
+        allowNull: true,
+    },
+    status: {
+        type: DataTypes.ENUM("available", "booked","requested"),
+        defaultValue: "available",
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+        allowNull:true
+    },
+    deleted_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+}, {
+    timestamps: false,
+});
+
+export default TherapistAvailability;
+
+
+*******************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const TherapySession = sequelize.define("TherapySession", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    appointment_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Appointments",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    therapist_id: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "Therapists",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    note_type: {
+        type: DataTypes.ENUM("user_note", "therapist_note", "common_note", "session_feedback"),
+        allowNull: false,
+    },
+    session_notes: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    common_notes: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    session_rating: {
+        type: DataTypes.INTEGER, 
+        allowNull: true,
+    },
+    user_rating: {
+        type: DataTypes.INTEGER, 
+        allowNull: true,
+    },
+    therapist_rating: {
+        type: DataTypes.INTEGER, 
+        allowNull: true,
+    },
+    user_feedback: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    therapist_feedback: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+    updated_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+    deleted_at: {
+        type: DataTypes.DATE, 
+        allowNull: true,
+    },
+}, {
+    timestamps: false,
+});
+
+export default TherapySession;
+
+
+******************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+import USER_ROLES from "./enums/UserRoles.js";
+
+const User = sequelize.define("User", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  username: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+    unique: true,
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false,
+  },
+  password_hash: {
+    type: DataTypes.TEXT,
+    allowNull: false,
+  },
+  role: {
+    type: DataTypes.ENUM(...Object.values(USER_ROLES)),
+    allowNull: false,
+    defaultValue: USER_ROLES.USER,
+  },
+  email_verified: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  profile_picture: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  bio: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  dob: {
+    type: DataTypes.DATEONLY,
+    allowNull: false,
+  },
+  gender: {
+    type: DataTypes.ENUM("male", "female", "non-binary", "prefer not to say"),
+    allowNull: true,
+  },
+
+  country: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+  city: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+  },
+
+  religious_support: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  about: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  faith_support: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  current_feelings: {
+    type: DataTypes.ARRAY(DataTypes.STRING),
+    allowNull: true,
+  },
+  last_login: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  account_status: {
+    type: DataTypes.ENUM("active", "banned", "deactivated"),
+    defaultValue: "active",
+  },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  updated_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
+  deleted_at: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+}, {
+  timestamps: true,
+});
+
+export default User;
+
+
+*********************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const UserActivity = sequelize.define("UserActivity", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+
+    login_time: {
+        type: DataTypes.DATE, 
+        allowNull: true,
+    },
+    logout_time: {
+        type: DataTypes.DATE, 
+        allowNull: true,
+    },
+    last_logged_mood: {
+        type: DataTypes.ENUM("happy", "sad", "neutral", "anxious", "stressed"),
+        allowNull: true, 
+    },
+    last_updated: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+export default UserActivity;
+
+
+*****************************
+
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/postgres.js";
+
+const UserViolations = sequelize.define("UserViolations", {
+    id: {
+        type: DataTypes.UUID,
+        defaultValue: DataTypes.UUIDV4,
+        primaryKey: true,
+    },
+    user_id: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users", 
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    reported_by: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        references: {
+            model: "Users", 
+            key: "id",
+        },
+        onDelete: "CASCADE",
+    },
+    target_post_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+        onDelete: "CASCADE",
+    },
+    
+    violation_reason: {
+        type: DataTypes.ENUM("abuse", "spam", "misinformation", "harmful content", "other"),
+        allowNull: false,
+    },
+    description: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    severity: {
+        type: DataTypes.ENUM("minor", "major"),
+        defaultValue: "minor",
+    },
+    resolved: {
+        type: DataTypes.BOOLEAN,
+        defaultValue: false, 
+    },
+    reviewed_by: {
+        type: DataTypes.UUID,
+        allowNull: true, 
+        references: {
+            model: "Users",
+            key: "id",
+        },
+        onDelete: "SET NULL",
+    },
+    resolution_notes: {
+        type: DataTypes.TEXT, 
+        allowNull: true,
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW,
+    },
+}, {
+    timestamps: false,
+});
+
+export default UserViolations;
+
+
+**************************
+
+
+
+***************************
+
+        MONGODB MODELS    
+
+***************************
+
+import mongoose from "mongoose";
+
+const chatSchema = new mongoose.Schema({
+  participants: [{ type: String, required: true }], // PostgreSQL User IDs
+  isGroup: { type: Boolean, default: false },
+  groupId: { type: mongoose.Schema.Types.ObjectId, ref: "Community", required: false },
+  lastMessage: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now },
+  lastMessageAt: { type: Date, default: Date.now },
+});
+
+export default mongoose.model("Chat", chatSchema);
+
+
+***************
+
+import mongoose from "mongoose";
+
+const communitySchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String },
+    type: { type: String, enum: ["public", "private"], required: true }, 
+    createdBy: { type: String, required: true }, 
+    moderators: [{ type: String }], 
+    members: [{ type: String }], 
+    pending_requests: [{ type: String }], 
+    posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }], 
+    createdAt: { type: Date, default: Date.now },
+    lastEditedAt: { type: Date, default: null },
+});
+
+export default mongoose.model("Community", communitySchema);
+
+*****************
+
+import mongoose from "mongoose";
+
+const journalSchema = new mongoose.Schema({
+    userId:       { type: String,   required: true },
+    date:         { type: Date,     default: Date.now },
+    title:        { type: String,   default: '' },
+    body:         { type: String,   required: true },
+    mood:         { type: String,   enum: ['😃','😔','😡','😌'], default: '😃' },
+    tags:         [{ type: String }],
+    private:      { type: Boolean,  default: true },
+    attachments:  [{ type: String }],      // URLs to uploaded files
+  });
+  export default mongoose.model('Journal', journalSchema);
+  
+
+  ******************
+
+  // models/Letter.js
+import mongoose from "mongoose";
+
+const letterSchema = new mongoose.Schema({
+  userId:   { type: String, required: true },
+  text:     { type: String, required: true },
+  media:    [{ type: String }],            
+  createdAt:{ type: Date, default: Date.now },
+  updatedAt:{ type: Date, default: null }
+});
+
+export default mongoose.model("Letter", letterSchema);
+
+**********************
+
+import mongoose from "mongoose";
+
+const messagesSchema = new mongoose.Schema({
+  chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chat", required: true },
+  messages: [
+    {
+      senderId: { type: String, required: true },
+      content: { type: String, required: false },
+      media: [{ type: String }],
+      messageType: {
+        type: String,
+        enum: ["text", "image", "video", "voice"],
+        default: "text",
+      },
+      status: {
+        type: String,
+        enum: ["sent", "delivered", "read"],
+        default: "sent",
+      },
+      createdAt: { type: Date, default: Date.now },
+    },
+  ],
+});
+
+export default mongoose.model("Message", messagesSchema);
+
+**********************
+
+import mongoose from "mongoose";
+
+const postSchema = new mongoose.Schema({
+    userId: { type: String, required: true }, 
+    content: { type: String, required: false }, 
+    media: [{ type: String }], 
+    categories: [{ type: String }], 
+    anonymous: { type: Boolean, default: false },
+    status: { type: String, enum: ["live", "flagged", "removed"], default: "live" },
+    communityId: { type: mongoose.Schema.Types.ObjectId, ref: "Community", required: false, default: null },
+    comments: [
+        {
+            userId: { type: String }, 
+            text: String,
+            createdAt: { type: Date, default: Date.now },
+        },
+    ],
+    helpful_feedback: [{ userId: { type: String }, feedback: String }],
+    reported_by: [{ type: String }], 
+    createdAt: { type: Date, default: Date.now },
+    lastEditedAt: { type: Date, default: null },
+});
+
+export default mongoose.model("Post", postSchema);
+
+**************************
+
