@@ -50,7 +50,7 @@ export const createOrGetChat = async ({ participants, isGroup, groupId }) => {
 //   // e.g., GET /users?ids=uuid1,uuid2,uuid3
 //   // Adjust the URL or query param as needed
 //   const userRes = await fetch(
-//     `http://localhost:5003/users?ids=${userIdsArray.join(",")}`
+//     `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net//users?ids=${userIdsArray.join(",")}`
 //   );
 //   if (!userRes.ok) {
 //     throw new Error("Failed to fetch user details from PostgreSQL");
@@ -101,7 +101,7 @@ export const getUserChats = async (userId) => {
 
   // 3) Fetch user details from PostgreSQL
   const userRes = await fetch(
-    `http://localhost:5003/users?ids=${userIdsArray.join(",")}`
+    `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net//users?ids=${userIdsArray.join(",")}`
   );
   if (!userRes.ok) {
     throw new Error("Failed to fetch user details from PostgreSQL");
@@ -213,7 +213,7 @@ export const getChatMessages = async (chatId) => {
 
   // Fetch user details only if we have senders
   const userRes = await fetch(
-    `http://localhost:5003/users?ids=${senderIdsArray.join(",")}`
+    `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net//users?ids=${senderIdsArray.join(",")}`
   );
   if (!userRes.ok) {
     throw new Error("Failed to fetch user details for messages");
