@@ -51,7 +51,8 @@ connectPostgres().then(() => {
 
 const allowedOrigins = [
   "https://empathaiv2-frontend.onrender.com", 
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "https://ambitious-river-0a69e4c03.1.azurestaticapps.net"
 ];
 // Middleware
 // app.use(cors());
