@@ -58,11 +58,11 @@ class AuthService {
         const storedToken = await RefreshToken.findOne({ where: { token: refreshToken } });
         if (!storedToken) throw new Error("Invalid refresh token. Please log in again.");
 
-        const decoded = tokenService.verifyToken(refreshToken, process.env.REFRESH_SECRET);
+        const decoded = tokenObject.verifyToken(refreshToken, process.env.REFRESH_SECRET);
         const user = await User.findByPk(decoded.id);
         if (!user) throw new Error("Invalid refresh token.");
 
-        const newAccessToken = tokenService.generateAccessToken(user);
+        const newAccessToken = tokenObject.generateAccessToken(user);
         return { accessToken: newAccessToken };
     }
 

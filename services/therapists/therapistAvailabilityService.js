@@ -188,6 +188,7 @@ async setAvailability(therapistId, availabilityData) {
       });
     });
 
+    console.log("futureRecords",futureRecords)
     return futureRecords;
   }
 

@@ -11,10 +11,23 @@ dotenv.config();
 //     logging: false, 
 // });
 
+// const sequelize = new Sequelize(process.env.DATABASE_URL, {
+//     dialect: 'postgres',
+//     logging: false,
+//     dialectOptions: { ssl: { rejectUnauthorized: false } }
+//   });
+
+console.log(process.env.DATABASE_URL)
+
 const sequelize = new Sequelize(process.env.DATABASE_URL, {
     dialect: 'postgres',
     logging: false,
-    dialectOptions: { ssl: { rejectUnauthorized: false } }
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false, // Necessary for Azure PostgreSQL
+      },
+    },
   });
 
   
