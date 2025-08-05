@@ -20,116 +20,138 @@ class PostService{
 
   
 
-    async createPost(userId, postData) {
+    // async createPost(userId, postData) {
       
+    //   const { content, media, categories, community_id } = postData;
+    //   console.log(postData)
+    //   const user = await User.findByPk(userId)
+    //   // Validate community membership if community_id is provided
+    //   if (community_id) {
+    //       const community = await Community.findById(community_id);
+    //       if (!community) throw new Error("The community could not be found");
+                  
+    //       if (community.type === "private" && !community.members.includes(userId)) {
+    //           throw new Error("You are not part of this community. Please click join and post once approved");
+    //       }
+    //   }
+  
+      
+
+    //     // Create the post as before
+    //     const newPost = await Post.create({
+    //       userId,
+    //       content,
+    //       media,
+    //       categories,
+    //       communityId: community_id || null,
+    //     });
+      
+    //     // Attach username if you need
+    //     const postObj = newPost.toObject();
+    //     postObj.username = user?.username || "EmpathAIUser";
+      
+    //     return postObj;
+
+    //   } catch (error) {
+    //       // Handle errors from the classification API call if needed
+    //       throw new Error(error);
+    //   } finally {
+    //     // Run content moderation AFTER post is created
+    //     if (newPost && content) {
+    //       try {
+    //         const res = await fetch("http://localhost:8000/moderate", {
+    //           method: "POST",
+    //           headers: { "Content-Type": "application/json" },
+    //           body: JSON.stringify({ text: content }),
+    //         });
+    
+    //         const moderation = await res.json();
+    //         const flagged = ["offensive", "hate"];
+    
+    //         if (!moderation.is_safe && flagged.includes(moderation.label)) {
+    //           console.warn(`🚨 Moderation triggered for Post ${newPost.id}. Deleting due to '${moderation.label}'`);
+    //           await Post.destroy({ where: { id: newPost.id } });
+    //         }
+    //       } catch (modError) {
+    //         console.error("⚠️ Moderation API failed:", modError.message);
+    //         // You might choose to alert admins/log this
+    //       }
+    //     }
+    //   }
+
+    async createPost(userId, postData,app) {
       const { content, media, categories, community_id } = postData;
-      console.log(postData)
-      const user = await User.findByPk(userId)
-      // Validate community membership if community_id is provided
-      if (community_id) {
+      let newPost = null;
+    
+      try {
+        const user = await User.findByPk(userId);
+    
+        // Check community if specified
+        if (community_id) {
           const community = await Community.findById(community_id);
           if (!community) throw new Error("The community could not be found");
-                  
+    
           if (community.type === "private" && !community.members.includes(userId)) {
-              throw new Error("You are not part of this community. Please click join and post once approved");
+            throw new Error("You are not part of this community. Please click join and post once approved");
           }
-      }
-  
-      const candidateLabels = [
-        "Grief & Bereavement",
-        "Depression",
-        "Anxiety",
-        "Coping Strategies",
-        "Self-Care",
-        "Emotional Healing",
-        "Social Support",
-        "Resilience",
-        "Abuse & Harassment",
-        "Offensive Content"
-      ];
-       
-//       try {
-//         const response = await fetch('https://flask-app-275410178944.europe-west2.run.app/classify', {  
-//           method: 'POST',
-//           headers: { 'Content-Type': 'application/json' },
-//           body: JSON.stringify({
-//             user_post: content,
-//             candidate_labels: candidateLabels
-//           })
-//         });
-//         // const result = await response.json();
-//         // console.log(result)
-
-//         if (!response.ok) {
-//           const text = await response.text();
-//           console.error('Non-200 from classify endpoint:', text);
-//           throw new Error(`Classification API returned HTTP ${response.status}`);
-//         }
-
-//         const contentType = response.headers.get('content-type') || '';
-// if (!contentType.includes('application/json')) {
-//   const text = await response.text();
-//   console.error('Expected JSON but got:', text);
-//   throw new Error('Classification API did not return JSON');
-// }
-
-
-// // Now safely parse
-// const result = await response.json();
-
-//         // If no topics or top score too low, discard post
-//         // if (!result.topics || result.topics.length === 0) {
-//         //   throw new Error("Your post has been removed by Team EmpathAI for its disturbing content.");
-//         // }
-//         // Sort by score desc
-//         result.topics.sort((a, b) => b.score - a.score);
-      
-//         // Set your minimum acceptable score threshold
-//         console.log(result.topics)
-//         if (result.topics[0].label === "Offensive Content" || result.topics[0].label === "Abuse & Harassment") {
-//           throw new Error("Your post has been removed by Team EmpathAI for its disturbing content.");
-//         }
-
-//         const topThreeLabels = result.topics
-//                                 .slice(0, 3)                // take at most the first 3
-//                                 .map((t) => t.label);       // pull out their labels
-
-//         const banned = ["Offensive Content", "Abuse & Harassment"];
-
-//         // if any of the top-three is banned, reject
-//         if (topThreeLabels.some((label) => banned.includes(label))) {
-//             throw new Error(
-//             "Your post has been removed by Team EmpathAI for its disturbing content."
-//             );
-//           }
-      
-//         // Take top two labels
-//         const topTwoCategories = result.topics.slice(0, 2).map((t) => t.label);
-//         console.log("Top two categories:", topTwoCategories);
-      
-        // Create the post as before
-        const newPost = await Post.create({
+        }
+    
+        // Create the post
+        newPost = await Post.create({
           userId,
           content,
           media,
           categories,
           communityId: community_id || null,
         });
-      
-        // Attach username if you need
+    
         const postObj = newPost.toObject();
         postObj.username = user?.username || "EmpathAIUser";
-      
         return postObj;
-
-      } catch (error) {
-          // Handle errors from the classification API call if needed
-          throw new Error(error);
-      }
-  
     
-
-
+      } catch (error) {
+        throw new Error(error);
+    
+      } finally {
+        if (newPost && content) {
+          try {
+            const res = await fetch("https://flask-app-275410178944.europe-west2.run.app/moderate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ content }),
+            });
+    
+            const moderation = await res.json();
+            const flagged = ["offensive", "hate"];
+    
+            if (!moderation.is_safe && flagged.includes(moderation.label)) {
+              console.warn(`🚨 Moderation triggered. Deleting post ${newPost._id} for '${moderation.label}'`);
+    
+              // 🧹 Delete post
+              await Post.findByIdAndDelete(newPost._id);
+    
+              // 📡 Emit only to that user if online
+              const io = app.get("io");
+              const userSocketMap = app.get("userSocketMap");
+              const socketId = userSocketMap.get(userId);
+    
+              if (socketId) {
+                io.to(socketId).emit("postModerated", {
+                  postId: newPost._id,
+                  reason: moderation.label,
+                  message: "🚨 Your post was removed due to content moderation.",
+                });
+              }
+    
+              throw new Error("Your post was removed due to content violations.");
+            }
+          } catch (modError) {
+            console.error("⚠️ Moderation check failed:", modError.message);
+          }
+        }
+      }
+    }
+    
 
 // async createPost(userId, postData) {
 

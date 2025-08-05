@@ -118,6 +118,8 @@ const io = new Server(server, {
 
 app.set("io", io);              // ← make it available on req.app
 
+const userSocketMap = new Map(); // userId => socketId
+
 // Socket.IO event handling
 io.on("connection", (socket) => {
 
@@ -137,10 +139,24 @@ io.on("connection", (socket) => {
     io.to(chatId).emit("newMessage", { chatId, message });
   });
 
+  socket.on("registerUser", (userId) => {
+    userSocketMap.set(userId, socket.id);
+    console.log(`Registered user ${userId} with socket ${socket.id}`);
+  });
+
   // On disconnect
   socket.on("disconnect", () => {
+    for (const [userId, sId] of userSocketMap.entries()) {
+      if (sId === socket.id) {
+        userSocketMap.delete(userId);
+        break;
+      }
+    }
+    console.log("Socket disconnected:", socket.id);
   });
 });
+
+app.set("userSocketMap", userSocketMap); // So you can access it inside your post service
 
 const PORT = process.env.PORT;
 server.listen(PORT, () => {

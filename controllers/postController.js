@@ -9,7 +9,7 @@ class PostController {
     async createPost(req, res) {
         try {
             const userId = req.user.id;
-            const newPost = await postService.createPost(userId, req.body);
+            const newPost = await postService.createPost(userId, req.body, req.app);
             res.status(201).json(newPost);
         } catch (error) {
             console.log("Logging error here", error)
