@@ -48,9 +48,10 @@ router.post(
         media: [],
         messageType: "voice",
       });
-      const newMsg = messageDoc.messages.at(-1);
+      console.log("Message doc:", messageDoc)
+      const newMsg = messageDoc;
       io.to(chatId).emit("newMessage", { message: newMsg });
-
+      console.log("new message:", newMsg)
       // 2) Respond immediately
       res.status(200).json({ message: newMsg });
 

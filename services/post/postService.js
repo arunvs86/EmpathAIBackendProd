@@ -112,7 +112,9 @@ class PostService{
       } catch (error) {
         throw new Error(error);
     
-      } finally {
+      } 
+      
+      finally {
         if (newPost && content) {
           try {
             const res = await fetch("https://flask-app-275410178944.europe-west2.run.app/moderate", {
@@ -121,7 +123,9 @@ class PostService{
               body: JSON.stringify({ content }),
             });
     
+
             const moderation = await res.json();
+            console.log("mod result", moderation)
             const flagged = ["offensive", "hate"];
     
             if (!moderation.is_safe && flagged.includes(moderation.label)) {

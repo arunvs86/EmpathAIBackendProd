@@ -83,7 +83,7 @@ export const getUserChats = async (userId) => {
   // 1) Get the raw chats from MongoDB (skip chats with empty lastMessage)
   const chats = await Chat.find({
     participants: userId,
-    lastMessage: { $ne: "" }, // Filter chats with actual messages
+    // lastMessage: { $ne: "" }, // Filter chats with actual messages
   })
     .sort({ lastMessageAt: -1 })
     .lean(); // Lean to work with plain objects early

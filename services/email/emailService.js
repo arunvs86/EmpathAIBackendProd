@@ -60,7 +60,7 @@ class EmailService {
         );
 
         console.log("Reset token", token)
-        const resetLink = `http://localhost:5173/reset-password?token=${token}`;
+        const resetLink = `https://ambitious-river-0a69e4c03.1.azurestaticapps.net/reset-password?token=${token}`;
 
         const mailOptions = {
             from: process.env.EMAIL_FROM,
