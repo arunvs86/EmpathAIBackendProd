@@ -432,7 +432,7 @@ class BotService {
     const prompt = prompts[Math.floor(Math.random() * prompts.length)];
     const promptForBot = prompt + "Give me a short human-written post (2-3 sentences) that supports users helping them gently cope without toxic positivity.`"
     console.log("prompt",prompt)
-    const response = await fetch("https://flask-app-275410178944.europe-west2.run.app/ask", {
+    const response = await fetch("https://empathgriefbot-f8a7a8apccd9cqe0.uksouth-01.azurewebsites.net/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

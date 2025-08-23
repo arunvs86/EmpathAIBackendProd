@@ -18,7 +18,34 @@ const FEELING_CATEGORY_MAP = {
 
 class PostService{
 
-  
+  // put this helper near the top of the file
+async fetchJSONSafe(url, options = {}) {
+  const res = await fetch(url, {
+    // sensible defaults
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...(options.headers || {}) },
+    ...options,
+  });
+
+  const ctype = res.headers.get("content-type") || "";
+  const text = await res.text(); // always read text so we can log on errors
+
+  // Helpful debug on non-2xx
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText} from ${url}. Body: ${text.slice(0, 500)}`);
+  }
+
+  if (!ctype.includes("application/json")) {
+    throw new Error(`Expected JSON but got Content-Type: ${ctype}. Body: ${text.slice(0, 500)}`);
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Invalid JSON from ${url}: ${e.message}. Body: ${text.slice(0, 500)}`);
+  }
+}
+
 
     // async createPost(userId, postData) {
       
@@ -111,45 +138,41 @@ class PostService{
     
       } catch (error) {
         throw new Error(error);
-    
       } 
       
       finally {
         if (newPost && content) {
           try {
-            const res = await fetch("https://flask-app-275410178944.europe-west2.run.app/moderate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content }),
-            });
-    
-
-            const moderation = await res.json();
-            console.log("mod result", moderation)
+            const moderation = await this.fetchJSONSafe(
+              "https://empathgriefbot-f8a7a8apccd9cqe0.uksouth-01.azurewebsites.net/moderate",
+              // "http://127.0.0.1:8000/moderate",
+              { body: JSON.stringify({ content }) }
+            );
+      
+            console.log("mod result", moderation);
             const flagged = ["offensive", "hate"];
-    
-            if (!moderation.is_safe && flagged.includes(moderation.label)) {
+      
+            if (moderation && moderation.is_safe === false && flagged.includes(moderation.label)) {
               console.warn(`🚨 Moderation triggered. Deleting post ${newPost._id} for '${moderation.label}'`);
-    
-              // 🧹 Delete post
+      
               await Post.findByIdAndDelete(newPost._id);
-    
-              // 📡 Emit only to that user if online
+      
               const io = app.get("io");
               const userSocketMap = app.get("userSocketMap");
-              const socketId = userSocketMap.get(userId);
-    
-              if (socketId) {
+              const socketId = userSocketMap?.get?.(userId);
+      
+              if (socketId && io) {
                 io.to(socketId).emit("postModerated", {
                   postId: newPost._id,
                   reason: moderation.label,
                   message: "🚨 Your post was removed due to content moderation.",
                 });
               }
-    
+      
               throw new Error("Your post was removed due to content violations.");
             }
           } catch (modError) {
+            // Don't crash post creation on moderation failure; log with detail
             console.error("⚠️ Moderation check failed:", modError.message);
           }
         }

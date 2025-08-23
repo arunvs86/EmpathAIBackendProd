@@ -13,4 +13,16 @@ router.get("/therapist/:id", authMiddleware, appointmentController.getTherapistA
 
 router.get("/upcoming",authMiddleware, appointmentController.getUpcomingAppointments);
 
+
+// routes/appointment.routes.js
+router.post("/:id/propose-times", authMiddleware, appointmentController.proposeTimes);
+router.post("/:id/proposal/accept", authMiddleware, appointmentController.acceptProposal);
+router.post("/:id/proposal/reject", authMiddleware, appointmentController.rejectProposal);
+
+router.get(
+    "/therapists/:id/occupied",
+    authMiddleware,
+    appointmentController.getOccupiedSlots
+  );
+
 export default router;

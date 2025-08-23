@@ -36,11 +36,12 @@ const Appointments = sequelize.define("Appointments", {
   status: {
     type: DataTypes.ENUM(
       "pending",
-      "confirmed",         // ← new
-      "rejected",          // ← new
+      "confirmed",
+      "rejected",
       "completed",
       "cancelled",
-      "no_show"
+      "no_show",
+      "reschedule_pending" // ← added
     ),
     defaultValue: "pending",
   },
@@ -68,6 +69,19 @@ const Appointments = sequelize.define("Appointments", {
   },
   meet_url: {
     type: DataTypes.STRING(500),
+    allowNull: true,
+  },
+  proposed_slots: {           // NEW
+    type: DataTypes.JSONB,    // use JSON if not Postgres
+    allowNull: true,
+    defaultValue: [],
+  },
+  proposal_expires_at: {      // NEW
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
+  cancellation_reason: {      // NEW (optional)
+    type: DataTypes.TEXT,
     allowNull: true,
   },
   created_at: {

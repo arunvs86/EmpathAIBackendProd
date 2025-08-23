@@ -194,6 +194,244 @@ The EmpathAI Team`,
         await this.transporter.sendMail(mailOptions);
       }
 
+  
+  async sendCancellationEmail(appointment, cancellerUser, counterpartyUser) {
+    const when = new Date(appointment.scheduled_at).toLocaleString();
+
+    const toCanceller = {
+      from: process.env.EMAIL_FROM,
+      to: cancellerUser?.email,
+      subject: "Your EmpathAI appointment was cancelled",
+      text: `Hello ${cancellerUser?.username || "there"},
+
+Your appointment scheduled for ${when} has been cancelled.
+
+If this was a mistake, you can book again from the app.
+
+— EmpathAI`,
+    };
+
+    const toCounterparty = {
+      from: process.env.EMAIL_FROM,
+      to: counterpartyUser?.email,
+      subject: "Appointment cancelled",
+      text: `Hello ${counterpartyUser?.username || "there"},
+
+The appointment scheduled for ${when} was cancelled by ${cancellerUser?.username || "the other party"}.
+
+— EmpathAI`,
+    };
+
+    if (toCanceller.to) await this.transporter.sendMail(toCanceller);
+    if (toCounterparty.to) await this.transporter.sendMail(toCounterparty);
+  }
+
+  
+  async sendRescheduleRequestEmail(appointment, user, therapistUser, requestedAtISO) {
+    const oldWhen = new Date(appointment.scheduled_at).toLocaleString();
+    const newWhen = new Date(requestedAtISO).toLocaleString();
+
+    const toTherapist = {
+      from: process.env.EMAIL_FROM,
+      to: therapistUser?.email,
+      subject: "Reschedule requested on EmpathAI",
+      text: `Hello ${therapistUser?.username || "Therapist"},
+
+${user?.username || "Your client"} requested to move the session:
+From: ${oldWhen}
+To:   ${newWhen}
+
+Please review this request in your dashboard.
+
+— EmpathAI`,
+    };
+
+    const toClientAck = {
+      from: process.env.EMAIL_FROM,
+      to: user?.email,
+      subject: "We sent your reschedule request",
+      text: `Hello ${user?.username || "there"},
+
+We sent your reschedule request to ${therapistUser?.username || "your therapist"}:
+From: ${oldWhen}
+To:   ${newWhen}
+
+You'll get an email once it's approved or rejected.
+
+— EmpathAI`,
+    };
+
+    if (toTherapist.to) await this.transporter.sendMail(toTherapist);
+    if (toClientAck.to) await this.transporter.sendMail(toClientAck);
+  }
+
+  
+  async sendRescheduleDecisionEmail(appointment, user, therapistUser, decision, newISO = null, googleMeetLink = null) {
+    const oldWhen = new Date(appointment.scheduled_at).toLocaleString();
+    const newWhen = newISO ? new Date(newISO).toLocaleString() : null;
+
+    const subject =
+      decision === "accept"
+        ? "Reschedule approved"
+        : "Reschedule rejected";
+
+    const clientText =
+      decision === "accept"
+        ? `Hello ${user?.username || "there"},
+
+Your reschedule request was approved.
+New time: ${newWhen}
+
+${googleMeetLink ? `Join via Google Meet:\n${googleMeetLink}\n\n` : ""}— EmpathAI`
+        : `Hello ${user?.username || "there"},
+
+Your reschedule request was not approved.
+Your session remains at: ${oldWhen}
+
+— EmpathAI`;
+
+    const therapistText =
+      decision === "accept"
+        ? `Hello ${therapistUser?.username || "Therapist"},
+
+You approved a reschedule request.
+New time: ${newWhen}
+
+${googleMeetLink ? `Meet link:\n${googleMeetLink}\n\n` : ""}— EmpathAI`
+        : `Hello ${therapistUser?.username || "Therapist"},
+
+You rejected a reschedule request.
+Appointment stays at: ${oldWhen}
+
+— EmpathAI`;
+
+    const toClient = {
+      from: process.env.EMAIL_FROM,
+      to: user?.email,
+      subject,
+      text: clientText,
+    };
+
+    const toTherapist = {
+      from: process.env.EMAIL_FROM,
+      to: therapistUser?.email,
+      subject,
+      text: therapistText,
+    };
+
+    if (toClient.to) await this.transporter.sendMail(toClient);
+    if (toTherapist.to) await this.transporter.sendMail(toTherapist);
+  }
+
+    /**
+   * Therapist cancelled a slot and we cancelled the appointment.
+   * Notify the client.
+   */
+    async sendTherapistCancelledAppointmentEmail(appointment, clientUser, therapistUser) {
+      if (!clientUser?.email) return;
+      const when = new Date(appointment.scheduled_at).toLocaleString();
+  
+      const mail = {
+        from: process.env.EMAIL_FROM,
+        to: clientUser.email,
+        subject: "Your EmpathAI session was cancelled",
+        text: `Hello ${clientUser.username || "there"},
+  
+  Your appointment with ${therapistUser?.username || "your therapist"} on ${when} was cancelled because the therapist updated their schedule.
+  
+  You can book a new time in the app whenever you're ready.
+  
+  — EmpathAI`,
+      };
+  
+      await this.transporter.sendMail(mail);
+    }
+  
+    /**
+     * Therapist edited/deleted a slot and proposes new times to the client.
+     * `alternatives` are ISO strings (Europe/London in your UI), we format them here.
+     */
+    async sendTherapistProposedRescheduleEmail(appointment, clientUser, therapistUser, alternatives = []) {
+      if (!clientUser?.email) return;
+  
+      const when = new Date(appointment.scheduled_at).toLocaleString();
+      const altLines = (alternatives || [])
+        .map(a => {
+          const d = new Date(a);
+          return `• ${isNaN(d) ? a : d.toLocaleString()}`;
+        })
+        .join("\n");
+  
+      const mail = {
+        from: process.env.EMAIL_FROM,
+        to: clientUser.email,
+        subject: "Your therapist proposed a new time",
+        text: `Hello ${clientUser.username || "there"},
+  
+  Your appointment with ${therapistUser?.username || "your therapist"} (previously ${when}) needs to be moved.
+  They've proposed the following alternative time(s):
+  
+  ${altLines || "• (Open the app to choose a new time)"}
+  
+  Please open EmpathAI to accept one of the options or pick a different slot.
+  
+  — EmpathAI`,
+      };
+  
+      await this.transporter.sendMail(mail);
+    }
+  
+    /**
+     * Therapist updated schedule and we auto-rejected a pending request.
+     */
+    async sendPendingRequestRejectedEmail(appointment, clientUser, therapistUser) {
+      if (!clientUser?.email) return;
+  
+      const when = new Date(appointment.scheduled_at).toLocaleString();
+      const mail = {
+        from: process.env.EMAIL_FROM,
+        to: clientUser.email,
+        subject: "Your request couldn’t be accepted",
+        text: `Hello ${clientUser.username || "there"},
+  
+  Your pending appointment request with ${therapistUser?.username || "the therapist"} for ${when} couldn’t be accepted because the therapist updated their availability.
+  
+  Please open EmpathAI to request a different time.
+  
+  — EmpathAI`,
+      };
+  
+      await this.transporter.sendMail(mail);
+    }
+  
+    /**
+     * (Optional) Small helper to send a summary back to the therapist after a bulk change.
+     */
+    async sendTherapistAvailabilityChangeSummary(therapistUser, { action, date, slot, affectedCounts }) {
+      if (!therapistUser?.email) return;
+      const { cancelled = 0, proposed = 0, rejected = 0 } = affectedCounts || {};
+  
+      const subject = `Availability change processed: ${action}`;
+      const text = `Hello ${therapistUser.username || "Therapist"},
+  
+  Your availability change has been applied:
+  • Action: ${action}
+  • Date/Slot: ${date || "-"} ${slot ? `(${slot})` : ""}
+  
+  Affected clients:
+  • Cancelled: ${cancelled}
+  • Proposed reschedule: ${proposed}
+  • Auto-rejected (pending): ${rejected}
+  
+  — EmpathAI`;
+  
+      await this.transporter.sendMail({
+        from: process.env.EMAIL_FROM,
+        to: therapistUser.email,
+        subject,
+        text,
+      });
+    }
 }
 
 export default new EmailService();
