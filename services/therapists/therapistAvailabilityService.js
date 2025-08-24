@@ -1072,9 +1072,11 @@ class TherapistAvailabilityService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    return records.filter((rec) =>
+    const availability =  records.filter((rec) =>
       (rec.selected_dates || []).some((d) => new Date(d) >= today)
     );
+
+    return availability
   }
 
   async listAllAvailabilities() {
