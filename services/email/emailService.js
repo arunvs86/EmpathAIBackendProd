@@ -440,8 +440,7 @@ Appointment stays at: ${oldWhen}
       const subject = `[EmpathAI] Contact form submission from ${name}`;
       const text =
   `Name: ${name}
-  Email: ${email}
-  Page: ${page || "-"}
+   Email: ${email}
   ---
   ${message}`;
   
