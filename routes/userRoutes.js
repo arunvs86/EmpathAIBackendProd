@@ -17,5 +17,6 @@ router.get("/:id/communities", authMiddleware, UserController.getUserCommunities
 // router.get("/:id/habits",  authMiddleware, UserController.getUserHabits);
 router.put("/:userId",authMiddleware, UserController.updateProfile);
 router.delete("/:userId", authMiddleware, UserController.deleteAccount);
+router.post("/contact", UserController.sendContactMessage);
 
 export default router;

@@ -432,6 +432,29 @@ Appointment stays at: ${oldWhen}
         text,
       });
     }
+
+    async sendContactMessage({ name, email, message, page }) {
+      const to = process.env.CONTACT_EMAIL || process.env.EMAIL_FROM;
+      if (!to) throw new Error("CONTACT_EMAIL or EMAIL_FROM not configured");
+  
+      const subject = `[EmpathAI] Contact form submission from ${name}`;
+      const text =
+  `Name: ${name}
+  Email: ${email}
+  Page: ${page || "-"}
+  ---
+  ${message}`;
+  
+      const mail = {
+        from: process.env.EMAIL_FROM,
+        to,
+        subject,
+        text,
+        replyTo: email, // lets you reply directly to the sender
+      };
+  
+      await this.transporter.sendMail(mail);
+    }
 }
 
 export default new EmailService();

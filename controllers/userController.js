@@ -4,6 +4,7 @@ import CommunityService  from "../services/community/communityService.js";
 // import HabitService      from "../services/habit/habitService.js";
 import User from "../models/User.js";
 import Therapist from "../models/Therapist.js";
+import EmailService from "../services/email/emailService.js";
 
 class UserController {
 
@@ -166,6 +167,23 @@ class UserController {
     }
   }
   
+  async sendContactMessage(req, res) {
+    try {
+      const { name, email, message, page } = req.body || {};
+      if (!name || !email || !message)
+        return res.status(400).json({ error: "name, email and message are required" });
+
+      // basic email sanity check
+      const ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email));
+      if (!ok) return res.status(400).json({ error: "Invalid email" });
+
+      await EmailService.sendContactMessage({ name, email, message, page });
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error("sendContactMessage error:", e);
+      return res.status(500).json({ error: "Failed to send message" });
+    }
+  }
   
 
 
