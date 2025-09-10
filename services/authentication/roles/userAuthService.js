@@ -11,7 +11,7 @@ class UserAuthService {
         const user = await User.create({
             username: userData.username,
             email: userData.email,
-            password_hash,
+            password_hash: userData.password_hash,
             role: userData.role,         // ensure role is validated elsewhere
             dob: userData.dob,           // only if you need it
             gender: userData.gender,
