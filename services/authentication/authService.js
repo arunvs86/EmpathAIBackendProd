@@ -33,7 +33,7 @@ class AuthService {
     async login(email, password) {
         const user = await User.findOne({ where: { email } });
         if (!user) throw new Error("User not found.");
-
+        
         const isMatch = await passwordHasher.comparePassword(password, user.password_hash);
         if (!isMatch) throw new Error("Invalid password.");
 
@@ -48,7 +48,7 @@ class AuthService {
         await RefreshToken.create({
             user_id: user.id,
             token: refreshToken,
-            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+            expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         });
 
         return { user, accessToken, refreshToken };
@@ -89,8 +89,10 @@ class AuthService {
         const decoded = await this.verifyResetToken(token);
 
         const hashedPassword = await passwordHasher.hashPassword(newPassword);
-        await User.update({ password:newPassword,password_hash: hashedPassword }, { where: { id: decoded.id } });
-
+        await User.update(
+            { password_hash: hashedPassword },
+            { where: { id: decoded.id } }
+          );
         return { message: "Password reset successful. You can now log in with your new password." };
     }
 

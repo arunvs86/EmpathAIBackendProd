@@ -449,7 +449,7 @@ Appointment stays at: ${oldWhen}
         to,
         subject,
         text,
-        replyTo: email, // lets you reply directly to the sender
+        replyTo: email, 
       };
   
       await this.transporter.sendMail(mail);

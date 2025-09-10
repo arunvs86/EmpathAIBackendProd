@@ -8,7 +8,21 @@ class UserAuthService {
 
         userData.password_hash = await passwordHasher.hashPassword(userData.password);
 
-        const user = await User.create(userData);
+        const user = await User.create({
+            username: userData.username,
+            email: userData.email,
+            password_hash,
+            role: userData.role,         // ensure role is validated elsewhere
+            dob: userData.dob,           // only if you need it
+            gender: userData.gender,
+            country: userData.country,
+            city: userData.city,
+            religious_support: userData.religious_support,
+            about: userData.about,
+            faith_support: userData.faith_support,
+            current_feelings: userData.current_feelings,
+          });
+          
         return user;
     }
 }

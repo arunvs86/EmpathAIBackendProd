@@ -25,7 +25,7 @@ class AuthController {
             const decoded = await emailService.verifyEmail(token);
             await authService.updateVerifiedStatus(decoded);
             // res.status(200).json({ message: "Email verified successfully!" });
-            return res.redirect("https://ambitious-river-0a69e4c03.1.azurestaticapps.net/login");  // adjust to your frontend login URL
+            return res.redirect("https://ambitious-river-0a69e4c03.1.azurestaticapps.net/login");
         } catch (error) {
             res.status(400).json({ error: error.message });
         }
