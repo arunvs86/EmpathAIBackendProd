@@ -944,7 +944,7 @@ class TherapistAvailabilityService {
 
   async getAllTherapists() {
     return Therapist.findAll({
-      include: [{ model: User, attributes: ["username", "profile_picture"] }],
+      include: [{ model: User, attributes: { exclude: ["password_hash"] } }],
       order: [["created_at", "DESC"]],
     });
   }
@@ -952,7 +952,7 @@ class TherapistAvailabilityService {
   async getTherapistById(therapistId) {
     const therapist = await Therapist.findOne({
       where: { id: therapistId },
-      include: [{ model: User, attributes: ["username", "profile_picture"] }],
+      include: [{ model: User, attributes: { exclude: ["password_hash"] } }],
     });
     if (!therapist) throw new Error("Therapist not found");
     return therapist;
@@ -961,7 +961,7 @@ class TherapistAvailabilityService {
   async getTherapistByUserId(userId) {
     const therapist = await Therapist.findOne({
       where: { user_id: userId },
-      include: [{ model: User, attributes: ["username", "profile_picture"] }],
+      include: [{ model: User, attributes: { exclude: ["password_hash"] } }],
     });
     if (!therapist) throw new Error("Therapist not found");
     return therapist;

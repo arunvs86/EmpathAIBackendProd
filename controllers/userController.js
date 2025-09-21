@@ -103,17 +103,15 @@ class UserController {
 
   async updateProfile(req, res) {
     console.log("updation req user", req.user);
-    console.log("updation req body", req.body);
   
     // get the real user ID from the auth middleware
     const id = req.user.id;
-    console.log("id:", id);
   
     const {
       username, bio, profile_picture, dob, gender,
       country, city, faith_support,
       experience_years, license_number,
-      languages_spoken, specialization_tags, session_duration, appointment_types
+      languages_spoken, specialization_tags, session_duration, appointment_types,link
     } = req.body;
   
     try {
@@ -126,7 +124,7 @@ class UserController {
       // if a therapist, also update the Therapist table
       if (req.user.role === "therapist") {
         await Therapist.update(
-          { experience_years, license_number, languages_spoken,specialization_tags, session_duration, appointment_types },
+          { experience_years, license_number, languages_spoken,specialization_tags, session_duration, appointment_types, link },
           { where: { user_id: id } }
         );
       }

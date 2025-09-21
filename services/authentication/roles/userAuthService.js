@@ -15,6 +15,8 @@ class UserAuthService {
             role: userData.role,         // ensure role is validated elsewhere
             dob: userData.dob,           // only if you need it
             gender: userData.gender,
+            bio: userData.bio,
+            profile_picture: userData.profile_picture,
             country: userData.country,
             city: userData.city,
             religious_support: userData.religious_support,

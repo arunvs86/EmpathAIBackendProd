@@ -23,6 +23,12 @@ const Therapist = sequelize.define(
       type: DataTypes.ARRAY(DataTypes.STRING),
       allowNull: true,
     },
+    link: {
+      type: DataTypes.STRING(512),
+      allowNull: true,
+      validate: { isUrl: true },
+      comment: "Optional public URL where the therapist offers private services",
+    },
     experience_years: {
       type: DataTypes.INTEGER,
       allowNull: false,
