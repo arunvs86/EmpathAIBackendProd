@@ -2,7 +2,6 @@ import nodemailer from "nodemailer";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
-
 dotenv.config();
 
 class EmailService {
@@ -88,6 +87,7 @@ class EmailService {
 async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLink = null) {
   // 1) generate meeting links
   let clientLink, proLink;
+  console.log("Appointment details", appointment)
   try {
     const { data } = await axios.post(
       "https://empathaimeet.onrender.com/api/v1/links",
@@ -104,11 +104,17 @@ async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLi
 
     const makeHashUrl = (rawUrl) => {
       const url = new URL(rawUrl);
+      console.log("URL", url)
       return `${url.origin}/#${url.pathname}${url.search}`;
     };
 
-    clientLink = makeHashUrl(data.clientLink);
-    proLink    = makeHashUrl(data.proLink);
+    clientLink = data.clientLink;
+    // clientLink = makeHashUrl(data.clientLink);
+    console.log(clientLink)
+    // proLink    = makeHashUrl(data.proLink);
+    proLink    = data.proLink;
+    console.log(proLink)
+
   } catch (err) {
     console.error("Could not generate meeting links:", err);
   }
