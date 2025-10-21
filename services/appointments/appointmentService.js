@@ -355,9 +355,14 @@ if (!fits) {
         await appointment.update({ status: "confirmed" }, { transaction: tx });
   
         // 2) Mark availability as booked for the matching record
-        const apptDT   = new Date(appointment.scheduled_at);
-        const apptDate = apptDT.toISOString().split("T")[0];
-        const apptMin  = apptDT.getHours() * 60 + apptDT.getMinutes();
+        // const apptDT   = new Date(appointment.scheduled_at);
+        // const apptDate = apptDT.toISOString().split("T")[0];
+        // const apptMin  = apptDT.getHours() * 60 + apptDT.getMinutes();
+
+        const apptLux  = DateTime.fromJSDate(appointment.scheduled_at, { zone: 'utc' })
+                         .setZone('Europe/London');           // view in UK
+ const apptDate = apptLux.toFormat('yyyy-LL-dd');             // e.g. "2025-10-22"
+ const apptMin  = apptLux.hour * 60 + apptLux.minute;         // minutes since midnight (UK)
   
         const availRecs = await TherapistAvailability.findAll({
           where: { therapist_id: therapistRow.id },
