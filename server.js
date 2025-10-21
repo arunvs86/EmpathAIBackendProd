@@ -62,7 +62,7 @@ app.use(
     origin: allowedOrigins,  // your live frontend URL
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
+    credentials: false,
   })
 );
 
@@ -71,7 +71,7 @@ app.options(
   cors({
     origin: allowedOrigins,
     allowedHeaders: ["Content-Type", "Authorization"],
-    credentials: true,
+    credentials: false,
   })
 );
 
@@ -110,11 +110,25 @@ app.use((err, req, res, next) => {
 const server = http.createServer(app);
 
 // Initialize Socket.IO
+// const io = new Server(server, {
+//   cors: {
+//     origin: "*", // or a specific domain like "http://localhost:3000"
+//     methods: ["GET", "POST"],
+//   },
+// });
+
 const io = new Server(server, {
+  path: "/socket.io",
   cors: {
-    origin: "*", // or a specific domain like "http://localhost:3000"
-    methods: ["GET", "POST"],
+    origin: (origin, cb) => {
+      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      cb(new Error("Not allowed by CORS (socket)"));
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: false,  // <— IMPORTANT
+    allowedHeaders: ["Content-Type", "Authorization"],
   },
+  transports: ["websocket", "polling"],
 });
 
 app.set("io", io);              // ← make it available on req.app
