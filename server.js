@@ -121,7 +121,7 @@ const io = new Server(server, {
   path: "/socket.io",
   cors: {
     origin: (origin, cb) => {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
       cb(new Error("Not allowed by CORS (socket)"));
     },
     methods: ["GET", "POST", "OPTIONS"],
