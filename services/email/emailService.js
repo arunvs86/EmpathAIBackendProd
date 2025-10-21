@@ -108,7 +108,7 @@ async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLi
         professionalsFullName: therapist.username,
         proId: therapist.id,
         clientName: user.username,
-        apptDate: uk(appointment.scheduled_at).getTime(),
+        apptDate: new Date(appointment.scheduled_at).getTime(),
       },
       { headers: { "Content-Type": "application/json" } }
     );
