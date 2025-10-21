@@ -3,6 +3,19 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import axios from "axios";
 dotenv.config();
+import { DateTime } from "luxon";
+
+const uk = (d) =>
+  DateTime.fromJSDate(new Date(d), { zone: "utc" })
+    .setZone("Europe/London")
+    .toFormat("dd LLL yyyy, HH:mm z"); // e.g., "22 Oct 2025, 17:00 BST"
+
+// Optional: if you want start–end range (uses session_duration minutes)
+const ukRange = (d, minutes = 30) => {
+  const start = DateTime.fromJSDate(new Date(d), { zone: "utc" }).setZone("Europe/London");
+  const end = start.plus({ minutes });
+  return `${start.toFormat("dd LLL yyyy, HH:mm")}–${end.toFormat("HH:mm z")}`;
+};
 
 class EmailService {
     constructor() {
@@ -72,7 +85,7 @@ class EmailService {
     }
 
     async sendAppointmentRequestEmail(appointment, user, therapist) {
-        const scheduledAt = new Date(appointment.scheduled_at).toLocaleString();
+        const scheduledAt = uk(appointment.scheduled_at);
     
         const mailOptions = {
           from: process.env.EMAIL_FROM,
@@ -95,7 +108,7 @@ async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLi
         professionalsFullName: therapist.username,
         proId: therapist.id,
         clientName: user.username,
-        apptDate: new Date(appointment.scheduled_at).getTime(),
+        apptDate: uk(appointment.scheduled_at).getTime(),
       },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -120,7 +133,7 @@ async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLi
   }
 
   // 2) format date
-  const when = new Date(appointment.scheduled_at).toLocaleString();
+  const when = uk(appointment.scheduled_at);
 
   // 3) build and send the client email
   const clientMail = {
@@ -162,6 +175,8 @@ ${
     : ""
 }
 
+Please note that all appointments are based on the UK time zone. 
+
 Best of luck,
 The EmpathAI Team`,
   };
@@ -175,7 +190,7 @@ The EmpathAI Team`,
 }
 
       async sendSlotTakenEmail(appointment, user, therapist) {
-        const scheduledAt = new Date(appointment.scheduled_at).toLocaleString();
+        const scheduledAt = uk(appointment.scheduled_at);
     
         const mailOptions = {
           from: process.env.EMAIL_FROM,
@@ -188,7 +203,7 @@ The EmpathAI Team`,
       }
 
       async sendRejectionEmail(appointment, user, therapist) {
-        const scheduledAt = new Date(appointment.scheduled_at).toLocaleString();
+        const scheduledAt = uk(appointment.scheduled_at);
     
         const mailOptions = {
           from: process.env.EMAIL_FROM,
@@ -202,7 +217,7 @@ The EmpathAI Team`,
 
   
   async sendCancellationEmail(appointment, cancellerUser, counterpartyUser) {
-    const when = new Date(appointment.scheduled_at).toLocaleString();
+    const when = uk(appointment.scheduled_at);
 
     const toCanceller = {
       from: process.env.EMAIL_FROM,
@@ -234,8 +249,8 @@ The appointment scheduled for ${when} was cancelled by ${cancellerUser?.username
 
   
   async sendRescheduleRequestEmail(appointment, user, therapistUser, requestedAtISO) {
-    const oldWhen = new Date(appointment.scheduled_at).toLocaleString();
-    const newWhen = new Date(requestedAtISO).toLocaleString();
+    const oldWhen = uk(appointment.scheduled_at);
+    const newWhen = uk(requestedAtISO);
 
     const toTherapist = {
       from: process.env.EMAIL_FROM,
@@ -273,7 +288,7 @@ You'll get an email once it's approved or rejected.
 
   
   async sendRescheduleDecisionEmail(appointment, user, therapistUser, decision, newISO = null, googleMeetLink = null) {
-    const oldWhen = new Date(appointment.scheduled_at).toLocaleString();
+    const oldWhen = uk(appointment.scheduled_at);
     const newWhen = newISO ? new Date(newISO).toLocaleString() : null;
 
     const subject =
@@ -335,7 +350,7 @@ Appointment stays at: ${oldWhen}
    */
     async sendTherapistCancelledAppointmentEmail(appointment, clientUser, therapistUser) {
       if (!clientUser?.email) return;
-      const when = new Date(appointment.scheduled_at).toLocaleString();
+      const when = uk(appointment.scheduled_at);
   
       const mail = {
         from: process.env.EMAIL_FROM,
@@ -360,7 +375,7 @@ Appointment stays at: ${oldWhen}
     async sendTherapistProposedRescheduleEmail(appointment, clientUser, therapistUser, alternatives = []) {
       if (!clientUser?.email) return;
   
-      const when = new Date(appointment.scheduled_at).toLocaleString();
+      const when = uk(appointment.scheduled_at);
       const altLines = (alternatives || [])
         .map(a => {
           const d = new Date(a);
@@ -393,7 +408,7 @@ Appointment stays at: ${oldWhen}
     async sendPendingRequestRejectedEmail(appointment, clientUser, therapistUser) {
       if (!clientUser?.email) return;
   
-      const when = new Date(appointment.scheduled_at).toLocaleString();
+      const when = uk(appointment.scheduled_at);
       const mail = {
         from: process.env.EMAIL_FROM,
         to: clientUser.email,
