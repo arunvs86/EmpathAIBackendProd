@@ -10,7 +10,6 @@ import { DateTime } from "luxon";
 // import createMeetEvent from "../../utils/calender.js"; // if you still use it
 import { createGoogleMeetEvent } from "../googleCalendarService.js";
 import therapistAvailabilityService from "../therapists/therapistAvailabilityService.js";
- import { DateTime } from 'luxon';
 
  const toUKIso = (jsDate) =>
    DateTime.fromJSDate(jsDate, { zone: 'utc' })
