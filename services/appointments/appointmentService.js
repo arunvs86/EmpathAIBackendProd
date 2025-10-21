@@ -10,6 +10,12 @@ import { DateTime } from "luxon";
 // import createMeetEvent from "../../utils/calender.js"; // if you still use it
 import { createGoogleMeetEvent } from "../googleCalendarService.js";
 import therapistAvailabilityService from "../therapists/therapistAvailabilityService.js";
+ import { DateTime } from 'luxon';
+
+ const toUKIso = (jsDate) =>
+   DateTime.fromJSDate(jsDate, { zone: 'utc' })
+     .setZone('Europe/London')
+     .toISO({ suppressMilliseconds: true, includeOffset: true });
 
 function parseSlot(slotStr = '') {
   // Normalize dash variants and spaces
@@ -716,7 +722,9 @@ if (!fits) {
    * Upcoming appointments for sidebar (role-aware)
    */
   async getUpcomingAppointments(userId, role) {
-    const now = new Date();
+    // const now = new Date();
+    const now = DateTime.utc().toJSDate(); // compare in UTC
+
 
     let appts = [];
     if (role === "therapist") {
@@ -745,7 +753,7 @@ if (!fits) {
 
       return appts.map((a) => {
         const obj = a.toJSON();
-        return { ...obj, counterpart: clientMap[a.user_id] || "Unknown client" };
+        return { ...obj, counterpart: clientMap[a.user_id] || "Unknown client",scheduled_at_uk_iso: toUKIso(a.scheduled_at) };
       });
     } else {
       // regular user
@@ -778,7 +786,7 @@ if (!fits) {
       return appts.map((a) => {
         const obj = a.toJSON();
         const tUserId = therapistToUserId[a.therapist_id];
-        return { ...obj, counterpart: userMap[tUserId] || "Unknown therapist" };
+        return { ...obj, counterpart: userMap[tUserId] || "Unknown therapist" , scheduled_at_uk_iso: toUKIso(a.scheduled_at)};
       });
     }
   }
