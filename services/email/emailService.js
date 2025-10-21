@@ -40,7 +40,7 @@ class EmailService {
             { expiresIn: "1h" }
         );
 
-        const verificationLink = `http://localhost:5003/auth/verify-email?token=${token}`;
+        const verificationLink = `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/auth/verify-email?token=${token}`;
 
         const mailOptions = {
             from: process.env.EMAIL_FROM,

@@ -121,7 +121,9 @@ class AppointmentService {
 
     // 2) Only use availability rows that are actually "available"
 const availRecords = await TherapistAvailability.findAll({
-  where: { therapist_id, status: 'available' },
+  // where: { therapist_id, status: 'available' },
+  where: { therapist_id },
+
 });
 if (!availRecords.length) {
   throw new Error("Therapist has not set any availability.");

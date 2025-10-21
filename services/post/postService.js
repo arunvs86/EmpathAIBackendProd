@@ -316,7 +316,7 @@ async fetchJSONSafe(url, options = {}) {
 //       // 3. Fetch user details from your REST API endpoint
 //       if (userIds.length > 0) {
 //         const userResponse = await fetch(
-//           `http://localhost:5003/users?ids=${userIds.join(",")}`
+//           `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`
 //         );
 //         if (!userResponse.ok) {
 //           console.log("Error in userid fetch")
@@ -387,7 +387,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
   if (userIds.length > 0) {
     try {
       const userResponse = await fetch(
-        `http://localhost:5003/users?ids=${userIds.join(",")}`
+        `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`
       );
       const raw = await userResponse.text();
       if (!userResponse.ok) {
@@ -468,7 +468,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       // 2. Fetch user details if we have any user IDs
       if (userIds.length > 0) {
         const userResponse = await fetch(
-          `http://localhost:5003/users?ids=${userIds.join(",")}`
+          `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`
         );
         if (!userResponse.ok) {
           console.log("Error in 2")
@@ -537,7 +537,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
     
       // --- Fetch author info ---
       try {
-        const res = await fetch(`http://localhost:5003/users?ids=${post.userId}`);
+        const res = await fetch(`https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${post.userId}`);
         const [user] = await res.ok ? await res.json() : [];
         enriched.username = user?.username || "EmpathAIUser";
         enriched.profile_picture = user?.profile_picture || null;
@@ -551,7 +551,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       if (commentUserIds?.length) {
         try {
           const cuRes = await fetch(
-            `http://localhost:5003/users?ids=${commentUserIds.join(",")}`
+            `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${commentUserIds.join(",")}`
           );
           const commentUsers = cuRes.ok ? await cuRes.json() : [];
     
@@ -652,7 +652,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       
         // 3. Fetch user details via a REST API endpoint that returns [{ id, username, profile_picture }]
         const userResponse = await fetch(
-          `http://localhost:5003/users?ids=${userIds.join(",")}`
+          `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`
         );
         if (!userResponse.ok) {
           console.log("Error in 3")
@@ -754,7 +754,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
     //   let userMap = {};
     //   if (userIds.size) {
     //     const resp = await fetch(
-    //       `http://localhost:5003/users?ids=${[...userIds].join(",")}`
+    //       `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${[...userIds].join(",")}`
     //     );
     //     const users = await resp.json();
     //     users.forEach((u) => {
@@ -803,7 +803,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       if (userIds.size) {
         try {
           const res = await fetch(
-            `http://localhost:5003/users?ids=${[...userIds].join(",")}`
+            `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${[...userIds].join(",")}`
           );
           const users = await res.json();
           users.forEach((u) => {
@@ -882,7 +882,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       // Fetch usernames from Postgres
       let userMap = {};
       if (userIds.size) {
-        const resp = await fetch(`http://localhost:5003/users?ids=${[...userIds].join(",")}`);
+        const resp = await fetch(`https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${[...userIds].join(",")}`);
         const users = await resp.json();
         users.forEach(u => userMap[u.id] = u.username);
       }
@@ -927,7 +927,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
     //   // 3. Fetch user details from your REST API endpoint
     //   if (userIds.length > 0) {
     //     const userResponse = await fetch(
-    //       `http://localhost:5003/users?ids=${userIds.join(",")}`
+    //       `https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`
     //     );
     //     if (!userResponse.ok) {
     //       console.log("Error in userid fetch")
@@ -982,7 +982,7 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
       let userMap = {};
       if (userIds.length > 0) {
         try {
-          const userResponse = await fetch(`http://localhost:5003/users?ids=${userIds.join(",")}`);
+          const userResponse = await fetch(`https://empathai-server-gkhjhxeahmhkghd6.uksouth-01.azurewebsites.net/users?ids=${userIds.join(",")}`);
     
           // Check response body is not empty
           const contentLength = userResponse.headers.get("content-length");
