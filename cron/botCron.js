@@ -32,11 +32,11 @@ cron.schedule(
     // "*/1 * * * *",
     async () => {
     const topic = pickRandom(BOT_TOPICS);
-    console.log(`🕑 [Bot Scheduler] Posting under topic: "${topic}"`);
+    // console.log(`🕑 [Bot Scheduler] Posting under topic: "${topic}"`);
     try {
       // your botService should take a single topic string
-      await botService.createScheduledPost(topic);
-      console.log(`✅ [Bot Scheduler] Successfully posted a "${topic}" tip.`);
+      // await botService.createScheduledPost(topic);
+      console.log(`✅ [Bot Scheduler] ran Successfully `);
     } catch (err) {
       console.error(`❌ [Bot Scheduler] Failed to post "${topic}" tip:`, err);
     }

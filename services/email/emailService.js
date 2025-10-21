@@ -158,7 +158,7 @@ ${
   googleMeetLink
     ? `\nJoin your session via Google Meet:\n${googleMeetLink}`
     : clientLink
-    ? `\nJoin your session here:\n${clientLink}`
+    ? `\nJoin your session here:\n${proLink}`
     : ""
 }
 
