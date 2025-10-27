@@ -26,7 +26,7 @@ const authMiddleware = async (req, res, next) => {
 
         next(); // Proceed to the next middleware/controller
     } catch (error) {
-        res.status(403).json({ error: "Invalid or expired token." });
+        res.status(403).json({ error: "Invalid or expired session. Please log out and login again to continue" });
     }
 };
 

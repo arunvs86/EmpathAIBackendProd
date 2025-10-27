@@ -7,7 +7,7 @@ class TokenService{
         return jwt.sign(
             {id:user.id, role:user.role},
             process.env.JWT_SECRET,
-            {expiresIn: '7d'}
+            {expiresIn: '28d'}
         );
     }
 
@@ -17,7 +17,7 @@ class TokenService{
                 id:user.id, role: user.role
             },
             process.env.REFRESH_SECRET,
-            {expiresIn: '7d'}
+            {expiresIn: '28d'}
         )
     }
 
