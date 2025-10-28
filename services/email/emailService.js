@@ -84,18 +84,60 @@ class EmailService {
         await this.transporter.sendMail(mailOptions);
     }
 
+    // async sendAppointmentRequestEmail(appointment, user, therapist) {
+    //     const scheduledAt = uk(appointment.scheduled_at);
+    
+    //     const mailOptions = {
+    //       from: process.env.EMAIL_FROM,
+    //       to: user.email,
+    //       subject: "Appointment Request - EmpathAI",
+    //       text: `Hello ${user.username},\n\nYour appointment with ${therapist.username} has been requested at ${scheduledAt}.\n\nThank you for choosing EmpathAI.\n\nBest regards,\nEmpathAI Team`,
+    //     };
+    
+    //     await this.transporter.sendMail(mailOptions);
+    //   }
+
     async sendAppointmentRequestEmail(appointment, user, therapist) {
-        const scheduledAt = uk(appointment.scheduled_at);
+      // 1) Format time in UK
+      const when = uk(appointment.scheduled_at);
     
-        const mailOptions = {
-          from: process.env.EMAIL_FROM,
-          to: user.email,
-          subject: "Appointment Request - EmpathAI",
-          text: `Hello ${user.username},\n\nYour appointment with ${therapist.username} has been requested at ${scheduledAt}.\n\nThank you for choosing EmpathAI.\n\nBest regards,\nEmpathAI Team`,
-        };
+      // 2) Email to the user (client)
+      const clientMail = {
+        from: process.env.EMAIL_FROM,
+        to: user.email,
+        subject: "Your EmpathAI Appointment Request Has Been Sent",
+        text: `Hello ${user.username},
     
-        await this.transporter.sendMail(mailOptions);
-      }
+    Your request to meet ${therapist.username} has been submitted for ${when} (UK time).
+    
+    The therapist will review and confirm. You'll get a separate email once it's approved and scheduled.
+    
+    Thank you for choosing EmpathAI.
+    
+    Warm regards,
+    The EmpathAI Team`,
+      };
+    
+      // 3) Email to the therapist
+      const proMail = {
+        from: process.env.EMAIL_FROM,
+        to: therapist.email,
+        subject: "New Appointment Request on EmpathAI",
+        text: `Hello ${therapist.username},
+    
+    You have a new appointment request from ${user.username} for ${when} (UK time).
+    
+    Please review and confirm the booking.
+    
+    Best regards,
+    The EmpathAI Team`,
+      };
+    
+      // 4) Send both
+      await this.transporter.sendMail(clientMail);
+      await this.transporter.sendMail(proMail);
+    }
+    
 
 async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLink = null) {
   // 1) generate meeting links
