@@ -108,7 +108,7 @@ class EmailService {
         subject: "Your EmpathAI Appointment Request Has Been Sent",
         text: `Hello ${user.username},
     
-    Your request to meet ${therapist.username} and email ${therapist.email } has been submitted for ${when} (UK time).
+    Your request to meet ${therapist.username} has been submitted for ${when} (UK time).
     
     The therapist will review and confirm. You'll get a separate email once it's approved and scheduled.
     
