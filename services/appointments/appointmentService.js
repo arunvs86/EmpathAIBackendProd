@@ -439,7 +439,7 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
 
           try {
             const { data } = await axios.post(
-              "https://empathaimeeting.onrender.com/api/v1/links",
+              "https://empathaimeet.onrender.com/api/v1/links",
               {
                 professionalsFullName: therapistUser.username,
                 proId: therapistUser.id,
@@ -449,6 +449,7 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
               { headers: { "Content-Type": "application/json" } }
             );
 
+            console.log("data", data)
             clientLink = data?.clientLink || null;
             proLink = data?.proLink || null;
           } catch (err) {
