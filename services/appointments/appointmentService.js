@@ -857,87 +857,197 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
   //   }
   // }
 
-  async getUpcomingAppointments(userId, role) {
+  // async getUpcomingAppointments(userId, role) {
+  //   const now = DateTime.utc().toJSDate();
+  
+  //   let appts = [];
+  //   if (role === "therapist") {
+  //     const therapist = await Therapist.findOne({
+  //       where: { user_id: userId },
+  //       attributes: ["id"],
+  //     });
+  //     if (!therapist) throw new Error("Therapist record not found.");
+  
+  //     appts = await Appointments.findAll({
+  //       where: {
+  //         therapist_id: therapist.id,
+  //         status: "confirmed",
+  //         scheduled_at: { [Op.gte]: now },
+  //       },
+  //       order: [["scheduled_at", "ASC"]],
+  //     });
+  
+  //     // map client usernames
+  //     const clientIds = [...new Set(appts.map((a) => a.user_id))];
+  //     const clients = await User.findAll({
+  //       where: { id: clientIds },
+  //       attributes: ["id", "username"],
+  //     });
+  //     const clientMap = Object.fromEntries(
+  //       clients.map((u) => [u.id, u.username])
+  //     );
+  
+  //     return appts.map((a) => {
+  //       const obj = a.toJSON();
+  //       return {
+  //         id: obj.id,
+  //         scheduled_at: obj.scheduled_at,
+  //         scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
+  //         counterpart: clientMap[obj.user_id] || "Unknown client",
+  //         join_url: obj.pro_url || obj.meet_url || null, // 👈 therapist link here
+  //       };
+  //     });
+  //   } else {
+  //     // role is "user" / client
+  //     appts = await Appointments.findAll({
+  //       where: {
+  //         user_id: userId,
+  //         status: "confirmed",
+  //         scheduled_at: { [Op.gte]: now },
+  //       },
+  //       order: [["scheduled_at", "ASC"]],
+  //     });
+  
+  //     // map therapist usernames
+  //     const therapistIds = [...new Set(appts.map((a) => a.therapist_id))];
+  //     const therapists = await Therapist.findAll({
+  //       where: { id: therapistIds },
+  //       attributes: ["id", "user_id"],
+  //     });
+  //     const therapistToUserId = Object.fromEntries(
+  //       therapists.map((t) => [t.id, t.user_id])
+  //     );
+  
+  //     const therapistUserIds = [...new Set(Object.values(therapistToUserId))];
+  //     const users = await User.findAll({
+  //       where: { id: therapistUserIds },
+  //       attributes: ["id", "username"],
+  //     });
+  //     const userMap = Object.fromEntries(users.map((u) => [u.id, u.username]));
+  
+  //     return appts.map((a) => {
+  //       const obj = a.toJSON();
+  //       const tUserId = therapistToUserId[a.therapist_id];
+  //       return {
+  //         id: obj.id,
+  //         scheduled_at: obj.scheduled_at,
+  //         scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
+  //         counterpart: userMap[tUserId] || "Unknown therapist",
+  //         join_url: obj.client_url || obj.meet_url || null, // 👈 client link here
+  //       };
+  //     });
+  //   }
+  // }
+
+  async getUpcomingAppointments(viewerUserId, viewerRole) {
     const now = DateTime.utc().toJSDate();
   
-    let appts = [];
-    if (role === "therapist") {
-      const therapist = await Therapist.findOne({
-        where: { user_id: userId },
-        attributes: ["id"],
-      });
-      if (!therapist) throw new Error("Therapist record not found.");
-  
-      appts = await Appointments.findAll({
-        where: {
-          therapist_id: therapist.id,
-          status: "confirmed",
-          scheduled_at: { [Op.gte]: now },
-        },
-        order: [["scheduled_at", "ASC"]],
-      });
-  
-      // map client usernames
-      const clientIds = [...new Set(appts.map((a) => a.user_id))];
-      const clients = await User.findAll({
-        where: { id: clientIds },
-        attributes: ["id", "username"],
-      });
-      const clientMap = Object.fromEntries(
-        clients.map((u) => [u.id, u.username])
-      );
-  
-      return appts.map((a) => {
-        const obj = a.toJSON();
-        return {
-          id: obj.id,
-          scheduled_at: obj.scheduled_at,
-          scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
-          counterpart: clientMap[obj.user_id] || "Unknown client",
-          join_url: obj.pro_url || obj.meet_url || null, // 👈 therapist link here
-        };
-      });
-    } else {
-      // role is "user" / client
-      appts = await Appointments.findAll({
-        where: {
-          user_id: userId,
-          status: "confirmed",
-          scheduled_at: { [Op.gte]: now },
-        },
-        order: [["scheduled_at", "ASC"]],
-      });
-  
-      // map therapist usernames
-      const therapistIds = [...new Set(appts.map((a) => a.therapist_id))];
-      const therapists = await Therapist.findAll({
-        where: { id: therapistIds },
+    // If viewer might be a therapist, try to load their Therapist row to get therapist.id.
+    let viewerTherapist = null;
+    if (viewerRole === "therapist") {
+      viewerTherapist = await Therapist.findOne({
+        where: { user_id: viewerUserId },
         attributes: ["id", "user_id"],
       });
-      const therapistToUserId = Object.fromEntries(
-        therapists.map((t) => [t.id, t.user_id])
-      );
-  
-      const therapistUserIds = [...new Set(Object.values(therapistToUserId))];
-      const users = await User.findAll({
-        where: { id: therapistUserIds },
-        attributes: ["id", "username"],
-      });
-      const userMap = Object.fromEntries(users.map((u) => [u.id, u.username]));
-  
-      return appts.map((a) => {
-        const obj = a.toJSON();
-        const tUserId = therapistToUserId[a.therapist_id];
-        return {
-          id: obj.id,
-          scheduled_at: obj.scheduled_at,
-          scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
-          counterpart: userMap[tUserId] || "Unknown therapist",
-          join_url: obj.client_url || obj.meet_url || null, // 👈 client link here
-        };
-      });
     }
+    const viewerTherapistId = viewerTherapist ? viewerTherapist.id : null;
+  
+    // Pull all appointments where this user is either the therapist OR the client.
+    // (This covers: therapist seeing their own sessions, AND therapist-as-client seeing sessions they booked)
+    const appts = await Appointments.findAll({
+      where: {
+        status: "confirmed",
+        scheduled_at: { [Op.gte]: now },
+        [Op.or]: [
+          { user_id: viewerUserId },                         // I'm the client
+          viewerTherapistId ? { therapist_id: viewerTherapistId } : null, // I'm the therapist
+        ].filter(Boolean),
+      },
+      order: [["scheduled_at", "ASC"]],
+    });
+  
+    // We want counterpart name for display.
+    // 1. collect all distinct client user_ids
+    const clientIds = [...new Set(appts.map((a) => a.user_id))];
+    const clientUsers = await User.findAll({
+      where: { id: clientIds },
+      attributes: ["id", "username"],
+    });
+    const clientMap = Object.fromEntries(
+      clientUsers.map((u) => [u.id, u.username])
+    );
+  
+    // 2. collect all distinct therapist_ids -> therapist.user_id -> therapist username
+    const therapistIds = [...new Set(appts.map((a) => a.therapist_id))];
+    const therapistRows = therapistIds.length
+      ? await Therapist.findAll({
+          where: { id: therapistIds },
+          attributes: ["id", "user_id"],
+        })
+      : [];
+    const therapistToUserId = Object.fromEntries(
+      therapistRows.map((t) => [t.id, t.user_id])
+    );
+  
+    const therapistUserIds = [...new Set(Object.values(therapistToUserId))];
+    const therapistUsers = therapistUserIds.length
+      ? await User.findAll({
+          where: { id: therapistUserIds },
+          attributes: ["id", "username"],
+        })
+      : [];
+    const therapistUserMap = Object.fromEntries(
+      therapistUsers.map((u) => [u.id, u.username])
+    );
+  
+    // Build response per appointment
+    return appts.map((a) => {
+      const obj = a.toJSON();
+  
+      // figure out who viewer is IN THIS APPOINTMENT
+      const isTherapistForThisAppt =
+        viewerTherapistId && obj.therapist_id === viewerTherapistId;
+      const isClientForThisAppt =
+        obj.user_id === viewerUserId;
+  
+      // select correct session link per appointment
+      let join_url = null;
+      if (isTherapistForThisAppt) {
+        // therapist link
+        join_url = obj.pro_url || obj.meet_url || null;
+      } else if (isClientForThisAppt) {
+        // client link
+        join_url = obj.client_url || obj.meet_url || null;
+      } else {
+        // shouldn't happen, but default safest side (client link)
+        join_url = obj.client_url || null;
+      }
+  
+      // pick counterpart display name:
+      // - if I'm therapist, counterpart is client username
+      // - if I'm client, counterpart is therapist username
+      let counterpartName = "Unknown";
+      if (isTherapistForThisAppt) {
+        counterpartName = clientMap[obj.user_id] || "Unknown client";
+      } else if (isClientForThisAppt) {
+        const tUserId = therapistToUserId[obj.therapist_id];
+        counterpartName = therapistUserMap[tUserId] || "Unknown therapist";
+      } else {
+        // fallback
+        const tUserId = therapistToUserId[obj.therapist_id];
+        counterpartName = therapistUserMap[tUserId] || clientMap[obj.user_id] || "Unknown";
+      }
+  
+      return {
+        id: obj.id,
+        scheduled_at: obj.scheduled_at,
+        scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
+        counterpart: counterpartName,
+        join_url,
+      };
+    });
   }
+  
   
 
   async getOccupiedSlots(therapistId, { from, to } = {}) {
