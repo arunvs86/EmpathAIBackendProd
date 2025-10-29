@@ -10,6 +10,7 @@ import { DateTime } from "luxon";
 // import createMeetEvent from "../../utils/calender.js"; // if you still use it
 import { createGoogleMeetEvent } from "../googleCalendarService.js";
 import therapistAvailabilityService from "../therapists/therapistAvailabilityService.js";
+import axios from "axios";
 
  const toUKIso = (jsDate) =>
    DateTime.fromJSDate(jsDate, { zone: 'utc' })
@@ -174,170 +175,391 @@ if (!fits) {
     };
   }
 
-  async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
-    // Map auth user -> Therapist row
-    const therapistRow = await Therapist.findOne({ where: { user_id: therapistUserId } });
-    if (!therapistRow) throw new Error("Therapist record not found.");
+//   async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
+//     // Map auth user -> Therapist row
+//     const therapistRow = await Therapist.findOne({ where: { user_id: therapistUserId } });
+//     if (!therapistRow) throw new Error("Therapist record not found.");
   
-    // Wrap only DB mutations in a transaction
-    return sequelize.transaction(async (tx) => {
-      // Load the appointment that belongs to this therapist
-      const appointment = await Appointments.findOne({
-        where: { id: appointmentId, therapist_id: therapistRow.id },
+//     // Wrap only DB mutations in a transaction
+//     return sequelize.transaction(async (tx) => {
+//       // Load the appointment that belongs to this therapist
+//       const appointment = await Appointments.findOne({
+//         where: { id: appointmentId, therapist_id: therapistRow.id },
+//         transaction: tx,
+//         lock: tx.LOCK.UPDATE,
+//       });
+  
+//       if (!appointment) {
+//         throw new Error("Appointment not found or unauthorized.");
+//       }
+//       if (appointment.status !== "pending") {
+//         throw new Error("Appointment has already been processed.");
+//       }
+  
+//       // Preload users we’ll need later (inside tx for consistency)
+//       const clientUser = await User.findByPk(appointment.user_id, { transaction: tx });
+//       const therapistUser = await User.findByPk(therapistRow.user_id, { transaction: tx });
+  
+//       if (decision === "accept") {
+//         // 1) Confirm appointment immediately
+//         await appointment.update({ status: "confirmed" }, { transaction: tx });
+  
+//         // 2) Mark availability as booked for the matching record
+//         // const apptDT   = new Date(appointment.scheduled_at);
+//         // const apptDate = apptDT.toISOString().split("T")[0];
+//         // const apptMin  = apptDT.getHours() * 60 + apptDT.getMinutes();
+
+//         const apptLux  = DateTime.fromJSDate(appointment.scheduled_at, { zone: 'utc' })
+//                          .setZone('Europe/London');           // view in UK
+//  const apptDate = apptLux.toFormat('yyyy-LL-dd');             // e.g. "2025-10-22"
+//  const apptMin  = apptLux.hour * 60 + apptLux.minute;         // minutes since midnight (UK)
+  
+//         const availRecs = await TherapistAvailability.findAll({
+//           where: { therapist_id: therapistRow.id },
+//           transaction: tx,
+//           lock: tx.LOCK.UPDATE,
+//         });
+  
+//         for (const rec of availRecs) {
+//           const slotsArr = rec.selected_time_slots?.[apptDate] || [];
+//           const matches = slotsArr.some((slotStr) => {
+//             const [startStr, endStr] = slotStr.split(/\s*[–-]\s*/);
+//             const [h1, m1] = (startStr || "").split(":").map(Number);
+//             const [h2, m2] = (endStr || "").split(":").map(Number);
+//             if ([h1, m1, h2, m2].some(isNaN)) return false;
+//             const s = h1 * 60 + m1;
+//             const e = h2 * 60 + m2;
+//             return apptMin >= s && apptMin < e;
+//           });
+//           if (matches) {
+//             await rec.update({ status: "booked" }, { transaction: tx });
+//           }
+//         }
+  
+//         // 3) Bulk-reject other pendings at same slot atomically
+//         await Appointments.update(
+//           { status: "rejected" },
+//           {
+//             where: {
+//               therapist_id: therapistRow.id,
+//               scheduled_at: appointment.scheduled_at,
+//               status: "pending",
+//               id: { [Op.ne]: appointment.id },
+//             },
+//             transaction: tx,
+//           }
+//         );
+  
+//         // Fetch those newly rejected so we can email them after commit
+//         const rejectedList = await Appointments.findAll({
+//           where: {
+//             therapist_id: therapistRow.id,
+//             scheduled_at: appointment.scheduled_at,
+//             status: "rejected",
+//           },
+//           transaction: tx,
+//         });
+  
+//         // ---- Do slow/fragile work AFTER COMMIT ----
+//         tx.afterCommit(async () => {
+//           try {
+//             // Create (optional) Google Meet link, then update the appt
+//             let googleMeetLink = null;
+//             if (therapistUser?.google_tokens) {
+//               try {
+//                 const start = new Date(appointment.scheduled_at);
+//                 const end = new Date(start.getTime() + 30 * 60000); // +30 min
+//                 googleMeetLink = await createGoogleMeetEvent(
+//                   therapistUser.google_tokens,
+//                   `Session with ${clientUser?.username || "client"}`,
+//                   start.toISOString(),
+//                   end.toISOString()
+//                 );
+//               } catch (err) {
+//                 console.error("Google Meet creation failed:", err.message);
+//               }
+//             }
+//             if (googleMeetLink) {
+//               await Appointments.update(
+//                 { meet_url: googleMeetLink },
+//                 { where: { id: appointment.id } }
+//               );
+//             }
+  
+//             // Send confirmation emails to client & therapist
+//             try {
+//               await emailService.sendAppointmentConfirmationEmail(
+//                 appointment,
+//                 clientUser,
+//                 therapistUser,
+//                 googleMeetLink || null
+//               );
+//             } catch (e) {
+//               console.error("sendAppointmentConfirmationEmail failed:", e.message);
+//             }
+  
+//             // Notify users whose pending got rejected for that slot
+//             try {
+//               // batch their user records
+//               const ids = [...new Set(rejectedList.map(r => r.user_id))];
+//               const users = await User.findAll({ where: { id: ids }, attributes: ["id", "email", "username"] });
+//               const userMap = Object.fromEntries(users.map(u => [u.id, u]));
+//               for (const rej of rejectedList) {
+//                 try {
+//                   await emailService.sendSlotTakenEmail(rej, userMap[rej.user_id], therapistUser);
+//                 } catch (e) {
+//                   console.error("sendSlotTakenEmail failed:", e.message);
+//                 }
+//               }
+//             } catch (e) {
+//               console.error("Rejected notifications failed:", e.message);
+//             }
+//           } catch (e) {
+//             // Never throw here — post-commit work should not affect API result
+//             console.error("afterCommit failed:", e.message);
+//           }
+//         });
+  
+//       } else if (decision === "reject") {
+//         // Just reject this pending request
+//         await appointment.update({ status: "rejected" }, { transaction: tx });
+  
+//         // Email after commit
+//         tx.afterCommit(async () => {
+//           try {
+//             await emailService.sendRejectionEmail(appointment, clientUser, therapistUser);
+//           } catch (e) {
+//             console.error("sendRejectionEmail failed:", e.message);
+//           }
+//         });
+//       } else {
+//         throw new Error("Invalid decision. Use 'accept' or 'reject'.");
+//       }
+  
+//       return { message: `Appointment ${decision === "accept" ? "confirmed" : "rejected"} successfully!` };
+//     });
+//   }
+
+async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
+  // Map auth user -> Therapist row
+  const therapistRow = await Therapist.findOne({ where: { user_id: therapistUserId } });
+  if (!therapistRow) throw new Error("Therapist record not found.");
+
+  // Only DB mutations inside the transaction
+  return sequelize.transaction(async (tx) => {
+    // 1. Load the appointment (and lock it so no race conditions)
+    const appointment = await Appointments.findOne({
+      where: { id: appointmentId, therapist_id: therapistRow.id },
+      transaction: tx,
+      lock: tx.LOCK.UPDATE,
+    });
+
+    if (!appointment) {
+      throw new Error("Appointment not found or unauthorized.");
+    }
+    if (appointment.status !== "pending") {
+      throw new Error("Appointment has already been processed.");
+    }
+
+    // 2. Fetch both sides' User rows (inside tx for consistency)
+    const clientUser = await User.findByPk(appointment.user_id, { transaction: tx });
+    const therapistUser = await User.findByPk(therapistRow.user_id, { transaction: tx });
+
+    if (decision === "accept") {
+      //
+      // ACCEPT BRANCH
+      //
+
+      // A) Mark this appointment confirmed
+      await appointment.update({ status: "confirmed" }, { transaction: tx });
+
+      // B) Mark matching availability as "booked"
+      const apptLux = DateTime.fromJSDate(appointment.scheduled_at, { zone: "utc" })
+        .setZone("Europe/London"); // interpret in UK time for slot matching
+      const apptDate = apptLux.toFormat("yyyy-LL-dd"); // e.g. "2025-10-22"
+      const apptMin = apptLux.hour * 60 + apptLux.minute; // minutes since midnight in UK
+
+      const availRecs = await TherapistAvailability.findAll({
+        where: { therapist_id: therapistRow.id },
         transaction: tx,
         lock: tx.LOCK.UPDATE,
       });
-  
-      if (!appointment) {
-        throw new Error("Appointment not found or unauthorized.");
-      }
-      if (appointment.status !== "pending") {
-        throw new Error("Appointment has already been processed.");
-      }
-  
-      // Preload users we’ll need later (inside tx for consistency)
-      const clientUser = await User.findByPk(appointment.user_id, { transaction: tx });
-      const therapistUser = await User.findByPk(therapistRow.user_id, { transaction: tx });
-  
-      if (decision === "accept") {
-        // 1) Confirm appointment immediately
-        await appointment.update({ status: "confirmed" }, { transaction: tx });
-  
-        // 2) Mark availability as booked for the matching record
-        // const apptDT   = new Date(appointment.scheduled_at);
-        // const apptDate = apptDT.toISOString().split("T")[0];
-        // const apptMin  = apptDT.getHours() * 60 + apptDT.getMinutes();
 
-        const apptLux  = DateTime.fromJSDate(appointment.scheduled_at, { zone: 'utc' })
-                         .setZone('Europe/London');           // view in UK
- const apptDate = apptLux.toFormat('yyyy-LL-dd');             // e.g. "2025-10-22"
- const apptMin  = apptLux.hour * 60 + apptLux.minute;         // minutes since midnight (UK)
-  
-        const availRecs = await TherapistAvailability.findAll({
-          where: { therapist_id: therapistRow.id },
-          transaction: tx,
-          lock: tx.LOCK.UPDATE,
+      for (const rec of availRecs) {
+        const slotsArr = rec.selected_time_slots?.[apptDate] || [];
+        const matches = slotsArr.some((slotStr) => {
+          const [startStr, endStr] = slotStr.split(/\s*[–-]\s*/);
+          const [h1, m1] = (startStr || "").split(":").map(Number);
+          const [h2, m2] = (endStr || "").split(":").map(Number);
+          if ([h1, m1, h2, m2].some(isNaN)) return false;
+          const s = h1 * 60 + m1;
+          const e = h2 * 60 + m2;
+          return apptMin >= s && apptMin < e;
         });
-  
-        for (const rec of availRecs) {
-          const slotsArr = rec.selected_time_slots?.[apptDate] || [];
-          const matches = slotsArr.some((slotStr) => {
-            const [startStr, endStr] = slotStr.split(/\s*[–-]\s*/);
-            const [h1, m1] = (startStr || "").split(":").map(Number);
-            const [h2, m2] = (endStr || "").split(":").map(Number);
-            if ([h1, m1, h2, m2].some(isNaN)) return false;
-            const s = h1 * 60 + m1;
-            const e = h2 * 60 + m2;
-            return apptMin >= s && apptMin < e;
-          });
-          if (matches) {
-            await rec.update({ status: "booked" }, { transaction: tx });
-          }
+
+        if (matches) {
+          await rec.update({ status: "booked" }, { transaction: tx });
         }
-  
-        // 3) Bulk-reject other pendings at same slot atomically
-        await Appointments.update(
-          { status: "rejected" },
-          {
-            where: {
-              therapist_id: therapistRow.id,
-              scheduled_at: appointment.scheduled_at,
-              status: "pending",
-              id: { [Op.ne]: appointment.id },
-            },
-            transaction: tx,
-          }
-        );
-  
-        // Fetch those newly rejected so we can email them after commit
-        const rejectedList = await Appointments.findAll({
+      }
+
+      // C) Auto-reject every OTHER pending request for that exact slot
+      await Appointments.update(
+        { status: "rejected" },
+        {
           where: {
             therapist_id: therapistRow.id,
             scheduled_at: appointment.scheduled_at,
-            status: "rejected",
+            status: "pending",
+            id: { [Op.ne]: appointment.id },
           },
           transaction: tx,
-        });
-  
-        // ---- Do slow/fragile work AFTER COMMIT ----
-        tx.afterCommit(async () => {
+        }
+      );
+
+      // D) We'll need those rejected appointments to email them later
+      const rejectedList = await Appointments.findAll({
+        where: {
+          therapist_id: therapistRow.id,
+          scheduled_at: appointment.scheduled_at,
+          status: "rejected",
+        },
+        transaction: tx,
+      });
+
+      //
+      // E) AFTER COMMIT SIDE EFFECTS
+      //
+      tx.afterCommit(async () => {
+        try {
+          //
+          // 1. Generate EmpathAI Meet links
+          //
+          let clientLink = null;
+          let proLink = null;
+
           try {
-            // Create (optional) Google Meet link, then update the appt
-            let googleMeetLink = null;
-            if (therapistUser?.google_tokens) {
+            const { data } = await axios.post(
+              "https://empathaimeeting.onrender.com/api/v1/links",
+              {
+                professionalsFullName: therapistUser.username,
+                proId: therapistUser.id,
+                clientName: clientUser.username,
+                apptDate: new Date(appointment.scheduled_at).getTime(),
+              },
+              { headers: { "Content-Type": "application/json" } }
+            );
+
+            clientLink = data?.clientLink || null;
+            proLink = data?.proLink || null;
+          } catch (err) {
+            console.error("Could not generate meeting links:", err?.message || err);
+          }
+
+          //
+          // 2. Save the links back onto the appointment row
+          //
+          // We have new TEXT columns: client_url, pro_url.
+          // We also try to mirror proLink into meet_url (<=500 chars) for legacy UIs.
+          try {
+            const meetUrlToStore =
+              proLink && proLink.length <= 500 ? proLink : null;
+
+            await Appointments.update(
+              {
+                client_url: clientLink || null,
+                pro_url: proLink || null,
+                meet_url: meetUrlToStore, // keep old column happy if it fits
+              },
+              { where: { id: appointment.id } }
+            );
+          } catch (err) {
+            console.error("Failed to store meeting URLs on appointment:", err?.message || err);
+          }
+
+          //
+          // 3. Send confirmation emails to both parties
+          //
+          try {
+            // NOTE: we changed the signature so we pass links explicitly
+            await emailService.sendAppointmentConfirmationEmail(
+              appointment,
+              clientUser,
+              therapistUser,
+              {
+                clientLink,
+                proLink,
+              }
+            );
+          } catch (e) {
+            console.error("sendAppointmentConfirmationEmail failed:", e.message);
+          }
+
+          //
+          // 4. Email everyone else who lost the slot
+          //
+          try {
+            const ids = [...new Set(rejectedList.map((r) => r.user_id))];
+            const users = await User.findAll({
+              where: { id: ids },
+              attributes: ["id", "email", "username"],
+            });
+            const userMap = Object.fromEntries(
+              users.map((u) => [u.id, u])
+            );
+
+            for (const rej of rejectedList) {
               try {
-                const start = new Date(appointment.scheduled_at);
-                const end = new Date(start.getTime() + 30 * 60000); // +30 min
-                googleMeetLink = await createGoogleMeetEvent(
-                  therapistUser.google_tokens,
-                  `Session with ${clientUser?.username || "client"}`,
-                  start.toISOString(),
-                  end.toISOString()
+                await emailService.sendSlotTakenEmail(
+                  rej,
+                  userMap[rej.user_id],
+                  therapistUser
                 );
-              } catch (err) {
-                console.error("Google Meet creation failed:", err.message);
+              } catch (e) {
+                console.error("sendSlotTakenEmail failed:", e.message);
               }
             }
-            if (googleMeetLink) {
-              await Appointments.update(
-                { meet_url: googleMeetLink },
-                { where: { id: appointment.id } }
-              );
-            }
-  
-            // Send confirmation emails to client & therapist
-            try {
-              await emailService.sendAppointmentConfirmationEmail(
-                appointment,
-                clientUser,
-                therapistUser,
-                googleMeetLink || null
-              );
-            } catch (e) {
-              console.error("sendAppointmentConfirmationEmail failed:", e.message);
-            }
-  
-            // Notify users whose pending got rejected for that slot
-            try {
-              // batch their user records
-              const ids = [...new Set(rejectedList.map(r => r.user_id))];
-              const users = await User.findAll({ where: { id: ids }, attributes: ["id", "email", "username"] });
-              const userMap = Object.fromEntries(users.map(u => [u.id, u]));
-              for (const rej of rejectedList) {
-                try {
-                  await emailService.sendSlotTakenEmail(rej, userMap[rej.user_id], therapistUser);
-                } catch (e) {
-                  console.error("sendSlotTakenEmail failed:", e.message);
-                }
-              }
-            } catch (e) {
-              console.error("Rejected notifications failed:", e.message);
-            }
           } catch (e) {
-            // Never throw here — post-commit work should not affect API result
-            console.error("afterCommit failed:", e.message);
+            console.error("Rejected notifications failed:", e.message);
           }
-        });
-  
-      } else if (decision === "reject") {
-        // Just reject this pending request
-        await appointment.update({ status: "rejected" }, { transaction: tx });
-  
-        // Email after commit
-        tx.afterCommit(async () => {
-          try {
-            await emailService.sendRejectionEmail(appointment, clientUser, therapistUser);
-          } catch (e) {
-            console.error("sendRejectionEmail failed:", e.message);
-          }
-        });
-      } else {
-        throw new Error("Invalid decision. Use 'accept' or 'reject'.");
-      }
-  
-      return { message: `Appointment ${decision === "accept" ? "confirmed" : "rejected"} successfully!` };
-    });
-  }
+        } catch (e) {
+          // IMPORTANT: never throw in afterCommit.
+          console.error("afterCommit post-accept failed:", e.message);
+        }
+      });
+
+    } else if (decision === "reject") {
+      //
+      // REJECT BRANCH
+      //
+
+      // A) mark this appointment rejected
+      await appointment.update({ status: "rejected" }, { transaction: tx });
+
+      // B) tell the client after commit
+      tx.afterCommit(async () => {
+        try {
+          await emailService.sendRejectionEmail(
+            appointment,
+            clientUser,
+            therapistUser
+          );
+        } catch (e) {
+          console.error("sendRejectionEmail failed:", e.message);
+        }
+      });
+
+    } else {
+      throw new Error("Invalid decision. Use 'accept' or 'reject'.");
+    }
+
+    return {
+      message: `Appointment ${
+        decision === "accept" ? "confirmed" : "rejected"
+      } successfully!`,
+    };
+  });
+}
+
   
   /**
    * Cancel an appointment (user or therapist via role)

@@ -139,58 +139,114 @@ class EmailService {
     }
     
 
-async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLink = null) {
-  // 1) generate meeting links
-  let clientLink, proLink;
-  console.log("Appointment details", appointment)
-  try {
-    const { data } = await axios.post(
-      "https://empathaimeet.onrender.com/api/v1/links",
-      {
-        professionalsFullName: therapist.username,
-        proId: therapist.id,
-        clientName: user.username,
-        apptDate: new Date(appointment.scheduled_at).getTime(),
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
+// async sendAppointmentConfirmationEmail(appointment, user, therapist,googleMeetLink = null) {
+//   // 1) generate meeting links
+//   let clientLink, proLink;
+//   console.log("Appointment details", appointment)
+//   try {
+//     const { data } = await axios.post(
+//       "https://empathaimeet.onrender.com/api/v1/links",
+//       {
+//         professionalsFullName: therapist.username,
+//         proId: therapist.id,
+//         clientName: user.username,
+//         apptDate: new Date(appointment.scheduled_at).getTime(),
+//       },
+//       { headers: { "Content-Type": "application/json" } }
+//     );
 
-    console.log(data)
+//     console.log(data)
 
-    const makeHashUrl = (rawUrl) => {
-      const url = new URL(rawUrl);
-      console.log("URL", url)
-      return `${url.origin}/#${url.pathname}${url.search}`;
-    };
+//     const makeHashUrl = (rawUrl) => {
+//       const url = new URL(rawUrl);
+//       console.log("URL", url)
+//       return `${url.origin}/#${url.pathname}${url.search}`;
+//     };
 
-    clientLink = data.clientLink;
-    // clientLink = makeHashUrl(data.clientLink);
-    console.log(clientLink)
-    // proLink    = makeHashUrl(data.proLink);
-    proLink    = data.proLink;
-    console.log(proLink)
+//     clientLink = data.clientLink;
+//     // clientLink = makeHashUrl(data.clientLink);
+//     console.log(clientLink)
+//     // proLink    = makeHashUrl(data.proLink);
+//     proLink    = data.proLink;
+//     console.log(proLink)
 
-  } catch (err) {
-    console.error("Could not generate meeting links:", err);
-  }
+//   } catch (err) {
+//     console.error("Could not generate meeting links:", err);
+//   }
 
-  // 2) format date
-  const when = uk(appointment.scheduled_at);
+//   // 2) format date
+//   const when = uk(appointment.scheduled_at);
 
-  // 3) build and send the client email
+//   // 3) build and send the client email
+//   const clientMail = {
+//     from: process.env.EMAIL_FROM,
+//     to:   user.email,
+//     subject: "Your EmpathAI Appointment is Confirmed",
+//     text: `Hello ${user.username},
+
+// Your appointment with ${therapist.username} is confirmed for ${when}.
+// ${
+//   googleMeetLink
+//     ? `\nJoin your session via Google Meet:\n${googleMeetLink}`
+//     : clientLink
+//     ? `\nJoin your session here:\n${clientLink}`
+//     : ""
+// }
+
+// Thank you for choosing EmpathAI.
+
+// Warm regards,
+// The EmpathAI Team`,
+//   };
+
+//   console.log(clientMail)
+
+//   // 4) build and send the pro email
+//   const proMail = {
+//     from: process.env.EMAIL_FROM,
+//     to:   therapist.email,         // make sure you have therapist.email
+//     subject: "New EmpathAI Appointment Booked",
+//     text: `Hello ${therapist.username},
+
+// You have a new appointment with ${user.username} on ${when}.
+// ${
+//   googleMeetLink
+//     ? `\nJoin your session via Google Meet:\n${googleMeetLink}`
+//     : clientLink
+//     ? `\nJoin your session here:\n${proLink}`
+//     : ""
+// }
+
+// Please note that all appointments are based on the UK time zone. 
+
+// Best of luck,
+// The EmpathAI Team`,
+//   };
+
+//   console.log(proMail)
+
+
+//   // 5) send both
+//   await this.transporter.sendMail(clientMail);
+//   await this.transporter.sendMail(proMail);
+// }
+
+// inside emailService.js
+async sendAppointmentConfirmationEmail(appointment, clientUser, therapistUser, { clientLink, proLink }) {
+  const when = uk(appointment.scheduled_at); // or however you're formatting
+
   const clientMail = {
     from: process.env.EMAIL_FROM,
-    to:   user.email,
+    to: clientUser.email,
     subject: "Your EmpathAI Appointment is Confirmed",
-    text: `Hello ${user.username},
+    text: `Hello ${clientUser.username},
 
-Your appointment with ${therapist.username} is confirmed for ${when}.
+Your appointment with ${therapistUser.username} is confirmed for ${when}.
+
 ${
-  googleMeetLink
-    ? `\nJoin your session via Google Meet:\n${googleMeetLink}`
-    : clientLink
-    ? `\nJoin your session here:\n${clientLink}`
-    : ""
+  clientLink
+    ? `Join your session here:\n${clientLink}\n`
+    : `We will send you the session link before your appointment.\n`
 }
 
 Thank you for choosing EmpathAI.
@@ -199,37 +255,29 @@ Warm regards,
 The EmpathAI Team`,
   };
 
-  console.log(clientMail)
-
-  // 4) build and send the pro email
   const proMail = {
     from: process.env.EMAIL_FROM,
-    to:   therapist.email,         // make sure you have therapist.email
+    to: therapistUser.email,
     subject: "New EmpathAI Appointment Booked",
-    text: `Hello ${therapist.username},
+    text: `Hello ${therapistUser.username},
 
-You have a new appointment with ${user.username} on ${when}.
+You have a new appointment with ${clientUser.username} on ${when}.
+
 ${
-  googleMeetLink
-    ? `\nJoin your session via Google Meet:\n${googleMeetLink}`
-    : clientLink
-    ? `\nJoin your session here:\n${proLink}`
-    : ""
+  proLink
+    ? `Join your session here:\n${proLink}\n`
+    : `No session link generated yet. Please check your dashboard.\n`
 }
 
-Please note that all appointments are based on the UK time zone. 
+Please note that all appointments are based on the UK time zone.
 
-Best of luck,
 The EmpathAI Team`,
   };
 
-  console.log(proMail)
-
-
-  // 5) send both
   await this.transporter.sendMail(clientMail);
   await this.transporter.sendMail(proMail);
 }
+
 
       async sendSlotTakenEmail(appointment, user, therapist) {
         const scheduledAt = uk(appointment.scheduled_at);
