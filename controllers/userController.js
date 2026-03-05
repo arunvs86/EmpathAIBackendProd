@@ -51,9 +51,6 @@ class UserController {
         // HabitService.countByUser(userId),
       ]);
 
-      console.log("pc", postsCount)
-      console.log("jc", journalsCount)
-      console.log("cc", commsCount)
 
       return res.json({
         posts:       postsCount,
@@ -109,7 +106,7 @@ class UserController {
   
     const {
       username, bio, profile_picture, dob, gender,
-      country, city, faith_support,
+      country, city, faith_support,isSueRyderReference,
       experience_years, license_number,
       languages_spoken, specialization_tags, session_duration, appointment_types,link
     } = req.body;
@@ -117,7 +114,7 @@ class UserController {
     try {
       // update the base User table
       await User.update(
-        { username, bio, profile_picture, dob, gender, country, city, faith_support },
+        { username, bio, profile_picture, dob, gender, country, city, faith_support,isSueRyderReference},
         { where: { id } }
       );
   

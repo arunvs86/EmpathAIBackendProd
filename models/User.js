@@ -68,6 +68,11 @@ const User = sequelize.define("User", {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
   },
+  isSueRyderReference: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },  
   current_feelings: {
     type: DataTypes.ARRAY(DataTypes.STRING),
     allowNull: true,

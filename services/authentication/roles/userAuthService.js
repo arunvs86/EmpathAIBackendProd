@@ -22,6 +22,7 @@ class UserAuthService {
             religious_support: userData.religious_support,
             about: userData.about,
             faith_support: userData.faith_support,
+            isSueRyderReference : userData.isSueRyderReference,
             current_feelings: userData.current_feelings,
           });
           
