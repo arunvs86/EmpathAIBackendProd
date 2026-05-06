@@ -545,25 +545,22 @@ Appointment stays at: ${oldWhen}
     }
 
     async sendContactMessage({ name, email, message, page }) {
-      const to = process.env.CONTACT_EMAIL || process.env.EMAIL_FROM;
-      if (!to) throw new Error("CONTACT_EMAIL or EMAIL_FROM not configured");
-  
-      const subject = `[EmpathAI] Contact form submission from ${name}`;
+      // Send to a dedicated contact address if set, otherwise fall back to the SMTP user
+      const to = process.env.CONTACT_EMAIL || process.env.SMTP_USER || process.env.EMAIL_FROM;
+      if (!to) throw new Error("No contact email configured (set CONTACT_EMAIL or SMTP_USER)");
+
+      // Gmail requires the FROM address to match the authenticated SMTP user
+      const from = `EmpathAI <${process.env.SMTP_USER || process.env.EMAIL_FROM}>`;
+
+      const subject = `[EmpathAI] Contact form message from ${name}`;
       const text =
-  `Name: ${name}
-   Email: ${email}
-  ---
-  ${message}`;
-  
-      const mail = {
-        from: process.env.EMAIL_FROM,
-        to,
-        subject,
-        text,
-        replyTo: email, 
-      };
-  
-      await this.transporter.sendMail(mail);
+`Name: ${name}
+Email: ${email}
+Page: ${page || "unknown"}
+---
+${message}`;
+
+      await this.transporter.sendMail({ from, to, subject, text, replyTo: email });
     }
 }
 
