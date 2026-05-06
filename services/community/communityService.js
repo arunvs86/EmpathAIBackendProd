@@ -241,9 +241,12 @@ class CommunityService {
     const community = await Community.findById(communityId);
     if (!community) throw new Error("Community not found.");
 
+    if (!community.members || community.members.length === 0) return [];
+
     const users = await User.findAll({
         where: { id: community.members },
         attributes: ["id", "username", "profile_picture"],
+        raw: true,
     });
 
     return users;
