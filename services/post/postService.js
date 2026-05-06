@@ -698,13 +698,18 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
         post.status="flagged"
         await post.save();
 
-        await UserViolations.create({
-            user_id: post.userId, // Post owner
-            reported_by: userId,
-            target_post_id: postId,
-            violation_reason: reason,
-            description,
-        });
+        try {
+            await UserViolations.create({
+                user_id: post.userId,
+                reported_by: userId,
+                target_post_id: postId,
+                violation_reason: reason,
+                description,
+            });
+        } catch (violationErr) {
+            // Post is already flagged; log but don't block the report
+            console.warn("Could not create UserViolation record:", violationErr.message);
+        }
 
         return { message: "Post reported successfully!" };
     }
