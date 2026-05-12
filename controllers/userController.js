@@ -176,7 +176,7 @@ class UserController {
       return res.json({ ok: true });
     } catch (e) {
       console.error("sendContactMessage error:", e);
-      return res.status(500).json({ error: "Failed to send message" });
+      return res.status(500).json({ error: "Failed to send message", detail: e.message });
     }
   }
   

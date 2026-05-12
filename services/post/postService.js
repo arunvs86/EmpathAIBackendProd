@@ -477,27 +477,32 @@ async getAllPosts(filters = {}, pagination = { limit: 15, page: 1 }) {
         }
         const users = await userResponse.json();
     
-        // 3. Create a map from userId to username
+        // 3. Create a map from userId to { username, profile_picture }
         const userMap = {};
         users.forEach((user) => {
-          userMap[user.id] = user.username;
+          userMap[user.id] = {
+            username: user.username,
+            profile_picture: user.profile_picture || null,
+          };
         });
-    
-        // 4. Attach username to each post AND commentUsername to each comment
+
+        // 4. Attach username + profile_picture to each post and comment
         const postsWithUsernames = posts.map((post) => {
           const postObj = post.toObject();
-    
-          // Post author's username
-          postObj.username = userMap[postObj.userId] || "EmpathAIUser";
-    
-          // Enrich each comment with commentUsername
+          const author = userMap[postObj.userId] || {};
+
+          postObj.username = author.username || "EmpathAIUser";
+          postObj.profile_picture = author.profile_picture || null;
+
           postObj.comments = postObj.comments.map((comment) => {
+            const commenter = userMap[comment.userId] || {};
             return {
               ...comment,
-              commentUsername: userMap[comment.userId] || "EmpathAIUser",
+              commentUsername: commenter.username || "EmpathAIUser",
+              profile_picture: commenter.profile_picture || null,
             };
           });
-    
+
           return postObj;
         });
     
