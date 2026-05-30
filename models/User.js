@@ -49,7 +49,7 @@ const User = sequelize.define("User", {
 
   country: {
     type: DataTypes.STRING(100),
-    allowNull: true,
+    allowNull: false,
   },
   city: {
     type: DataTypes.STRING(100),
