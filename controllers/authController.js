@@ -6,16 +6,21 @@ class AuthController {
     async register(req, res) {
         try {
             const { userData, roleData } = req.body;
-            const result = await authService.register(userData, roleData);            
+            const result = await authService.register(userData, roleData);   
+            console.log("Result after registering", result)         
             await emailService.sendVerificationEmail(result);
-
-            res.status(201).json({
+            console.log("Email sent successfully")
+            
+                res.status(201).json({
                 message: "Registration successful. Please verify your email.",
                 ...result,
             });
 
         } catch (error) {
-            res.status(400).json({ error: error.message });
+            const message = error.errors?.length
+                ? error.errors.map(e => e.message).join(", ")
+                : error.message;
+            res.status(400).json({ error: message });
         }
     }
 

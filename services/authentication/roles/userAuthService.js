@@ -2,8 +2,8 @@ import User from "../../../models/User.js";
 import passwordHasher from "../../../utils/passwordHasher.js";
 
 class UserAuthService {
-    async register(userData) {
-        const existingUser = await User.findOne({ where: { email: userData.email } });
+    async register(userData, options = {}) {
+        const existingUser = await User.findOne({ where: { email: userData.email }, transaction: options.transaction });
         if (existingUser) throw new Error("Email already in use.");
 
         userData.password_hash = await passwordHasher.hashPassword(userData.password);
@@ -12,8 +12,8 @@ class UserAuthService {
             username: userData.username,
             email: userData.email,
             password_hash: userData.password_hash,
-            role: userData.role,         // ensure role is validated elsewhere
-            dob: userData.dob,           // only if you need it
+            role: userData.role,
+            dob: userData.dob,
             gender: userData.gender,
             bio: userData.bio,
             profile_picture: userData.profile_picture,
@@ -22,10 +22,10 @@ class UserAuthService {
             religious_support: userData.religious_support,
             about: userData.about,
             faith_support: userData.faith_support,
-            isSueRyderReference : userData.isSueRyderReference,
+            isSueRyderReference: userData.isSueRyderReference,
             current_feelings: userData.current_feelings,
-          });
-          
+        }, { transaction: options.transaction });
+
         return user;
     }
 }
