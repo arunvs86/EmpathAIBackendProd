@@ -2,6 +2,15 @@
 import Habit from "../../models/Habit.js";
 import HabitLog from "../../models/HabitLog.js";
 
+/** Normalize a date to UTC midnight (timezone-stable day key). */
+function toUtcMidnight(input) {
+  if (typeof input === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return new Date(`${input}T00:00:00.000Z`);
+  }
+  const d = new Date(input);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
 class HabitService {
   /** Fetch all habits for a user */
   async findByUser(userId) {
@@ -44,8 +53,7 @@ class HabitService {
 
   /** Upsert a log entry */
   async upsertLog(habitId, userId, { date, completed, notes = "" }) {
-    const logDate = new Date(date);
-    logDate.setHours(0, 0, 0, 0);
+    const logDate = toUtcMidnight(date);
 
     return HabitLog.findOneAndUpdate(
       { habitId, userId, date: logDate },
@@ -64,14 +72,15 @@ class HabitService {
     }).exec();
   }
 
-  /** Compute current streak */
+  /** Compute current streak (consecutive completed days, UTC-based) */
   async computeStreak(habitId, userId) {
     let streak = 0;
-    const today = new Date();
+    // Anchor to today's UTC midnight
+    const now = new Date();
+    const anchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     for (;;) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - streak);
-      d.setHours(0, 0, 0, 0);
+      const d = new Date(anchor);
+      d.setUTCDate(d.getUTCDate() - streak);
       const exists = await HabitLog.exists({
         habitId,
         userId,

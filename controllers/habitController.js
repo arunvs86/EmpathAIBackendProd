@@ -2,6 +2,20 @@
 import Habit from "../models/Habit.js";
 import HabitLog from "../models/HabitLog.js";
 
+/**
+ * Normalize an incoming date to UTC midnight so every log for a given
+ * calendar day maps to exactly one timezone-stable value.
+ * Accepts a plain "YYYY-MM-DD" string (preferred, sent by the client) or,
+ * as a fallback, any Date/ISO string.
+ */
+function toUtcMidnight(input) {
+  if (typeof input === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return new Date(`${input}T00:00:00.000Z`);
+  }
+  const d = new Date(input);
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
 class HabitController {
   // List all habits for the current user
   async list(req, res) {
@@ -62,8 +76,7 @@ class HabitController {
     const { id } = req.params;         // habitId
     const userId = req.user.id;
     const { date, completed, notes } = req.body;
-    const logDate = new Date(date);
-    logDate.setHours(0,0,0,0);
+    const logDate = toUtcMidnight(date);
 
     const result = await HabitLog.findOneAndUpdate(
       { habitId: id, userId, date: logDate },
