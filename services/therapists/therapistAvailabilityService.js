@@ -969,8 +969,9 @@ class TherapistAvailabilityService {
 
   /* ---- availability core helpers ---- */
 
-  // Expand any range into 30-minute slots (inclusive of start, exclusive of end)
-  splitTimeRange(timeRange) {
+  // Expand a range into `stepMinutes`-long slots (inclusive of start, exclusive of end).
+  // stepMinutes defaults to the therapist's session duration (passed by callers); 30 as a fallback.
+  splitTimeRange(timeRange, stepMinutes = 30) {
     try {
       const [startStr, endStr] = splitOnDash(timeRange);
       if (!startStr || !endStr) return [];
@@ -981,36 +982,35 @@ class TherapistAvailabilityService {
 
       const start = h1 * 60 + m1;
       const end   = h2 * 60 + m2;
+      if (end <= start) return [];
+
+      const step = Number(stepMinutes) > 0 ? Number(stepMinutes) : 30;
+      const pad = (n) => String(n).padStart(2, "0");
+      const fmt = (mins) => `${pad(Math.floor(mins / 60))}:${pad(mins % 60)}`;
 
       const slots = [];
-      for (let t = start; t < end; t += 30) {
-        const sH = String(Math.floor(t / 60)).padStart(2, "0");
-        const sM = String(t % 60).padStart(2, "0");
-        const eT = t + 30;
-        const eH = String(Math.floor(eT / 60)).padStart(2, "0");
-        const eM = String(eT % 60).padStart(2, "0");
-        if (eT <= end) slots.push(`${sH}:${sM}-${eH}:${eM}`);
+      for (let t = start; t + step <= end; t += step) {
+        slots.push(`${fmt(t)}-${fmt(t + step)}`);
       }
+      // If the window is shorter than one step (or doesn't divide evenly and
+      // produced nothing), keep the original window as a single bookable slot
+      // instead of silently dropping it.
+      if (slots.length === 0) slots.push(`${fmt(start)}-${fmt(end)}`);
       return slots;
     } catch {
       return [];
     }
   }
 
-  // Normalize & expand (30-min) all slots for incoming availability
+  // Normalize incoming slots (unify dash/spacing) and dedupe.
+  // Slots are kept EXACTLY as the therapist entered them — a 09:00-10:00 stays
+  // 09:00-10:00 and a 09:00-12:00 stays 09:00-12:00 (no splitting into sub-slots).
   expandSlotsMap(selected_time_slots = {}) {
     const out = {};
     for (const date of Object.keys(selected_time_slots || {})) {
-      out[date] = [];
-      for (const raw of selected_time_slots[date] || []) {
-        const slot = normalizeSlot(raw); // unify dash/spacing
-        if (slotHasDash(slot)) {
-          out[date].push(...this.splitTimeRange(slot));
-        } else {
-          out[date].push(slot);
-        }
-      }
-      out[date] = Array.from(new Set(out[date])); // dedupe
+      out[date] = Array.from(
+        new Set((selected_time_slots[date] || []).map((raw) => normalizeSlot(raw)))
+      );
     }
     return out;
   }
