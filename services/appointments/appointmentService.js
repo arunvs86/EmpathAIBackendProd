@@ -1044,6 +1044,7 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
         scheduled_at_uk_iso: toUKIso(obj.scheduled_at),
         counterpart: counterpartName,
         join_url,
+        session_duration: obj.session_duration ?? null,
       };
     });
   }
