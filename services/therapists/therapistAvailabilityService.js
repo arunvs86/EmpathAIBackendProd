@@ -1035,6 +1035,14 @@ class TherapistAvailabilityService {
     });
 
     const incoming = this.expandSlotsMap(availabilityData.selected_time_slots || {});
+
+    // A date with no slots would be dropped by mergeTimeSlots below, which used to
+    // return "updated successfully" while saving nothing at all.
+    const datesWithoutSlots = Object.keys(incoming).filter((d) => incoming[d].length === 0);
+    if (datesWithoutSlots.length) {
+      throw new Error(`Add at least one time slot for: ${datesWithoutSlots.sort().join(", ")}`);
+    }
+
     const incomingDates = Object.keys(incoming);
 
     if (!availability) {
@@ -1276,9 +1284,14 @@ class TherapistAvailabilityService {
       const altDT = DateTime.fromISO(firstAlt, { zone: "Europe/London" });
       if (!altDT.isValid) throw new Error("Invalid alternative datetime.");
   
+      // proposed_slots is the column that exists; proposed_scheduled_at does not, so
+      // Sequelize silently dropped it and the proposed time was lost.
       const updatePayload = {
         status: "reschedule_pending",
-        proposed_scheduled_at: altDT.toUTC().toJSDate(),
+        proposed_slots: alternatives.map((a) =>
+          DateTime.fromISO(String(a), { zone: "Europe/London" }).toUTC().toISO()
+        ),
+        proposal_expires_at: DateTime.now().plus({ days: 2 }).toJSDate(),
       };
   
       const toUpdateIds = [

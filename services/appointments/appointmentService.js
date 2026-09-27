@@ -42,6 +42,19 @@ function parseSlot(slotStr = '') {
 }
 
 
+/**
+ * True when [startMs, startMs + durationMins) overlaps any existing appointment.
+ * Comparing start times alone let a 30-minute booking slip inside a 60-minute session.
+ */
+export function overlapsExisting({ startMs, durationMins }, existing = []) {
+  const newEnd = startMs + durationMins * 60000;
+  return existing.some((a) => {
+    const s = new Date(a.scheduled_at).getTime();
+    const e = s + (Number(a.session_duration) > 0 ? Number(a.session_duration) : 30) * 60000;
+    return startMs < e && s < newEnd;
+  });
+}
+
 class AppointmentService {
   /**
    * Book a session (creates a PENDING appointment if slot is available)
@@ -51,7 +64,6 @@ class AppointmentService {
       therapist_id,
       scheduled_at,
       session_type,
-      session_duration,
       primary_concern,
       attended_before,
       session_goals,
@@ -124,29 +136,47 @@ if (!fits) {
 }
 
 
-    // 7) Conflict: already confirmed at this exact time?
+    // 7) Session length is the therapist's, never the caller's — a client-supplied
+    // duration would decide how much of the calendar this booking blocks.
+    const bookedDuration = Number(therapistDetails.session_duration) > 0
+      ? Number(therapistDetails.session_duration)
+      : 30;
+
+    // 8) Reject anything that OVERLAPS an existing booking, not just an exact
+    // start-time match, and hold a lock so two simultaneous requests can't both pass.
     const scheduledAtUTC = dt.toUTC().toJSDate();
-    const conflict = await Appointments.findOne({
-      where: {
+    const newAppointment = await sequelize.transaction(async (tx) => {
+      const sameDayFrom = dt.startOf("day").minus({ days: 1 }).toUTC().toJSDate();
+      const sameDayTo = dt.endOf("day").plus({ days: 1 }).toUTC().toJSDate();
+
+      const nearby = await Appointments.findAll({
+        where: {
+          therapist_id,
+          status: { [Op.in]: ["pending", "confirmed", "reschedule_pending"] },
+          scheduled_at: { [Op.gte]: sameDayFrom, [Op.lte]: sameDayTo },
+        },
+        transaction: tx,
+        lock: tx.LOCK.UPDATE,
+      });
+
+      const conflict = overlapsExisting(
+        { startMs: scheduledAtUTC.getTime(), durationMins: bookedDuration },
+        nearby
+      );
+      if (conflict) throw new Error("Slot already taken.");
+
+      return Appointments.create({
+        user_id: userId,
         therapist_id,
         scheduled_at: scheduledAtUTC,
-        status: "confirmed",
-      },
-    });
-    if (conflict) throw new Error("Slot already taken.");
-
-    // 8) Create PENDING appointment + questionnaire answers
-    const newAppointment = await Appointments.create({
-      user_id: userId,
-      therapist_id,
-      scheduled_at: scheduledAtUTC,
-      session_duration,
-      session_type,
-      status: "pending",
-      primary_concern,
-      attended_before,
-      session_goals,
-      additional_details,
+        session_duration: bookedDuration,
+        session_type,
+        status: "pending",
+        primary_concern,
+        attended_before,
+        session_goals,
+        additional_details,
+      }, { transaction: tx });
     });
 
     // 9) Mark one availability record as "requested" (optional visual cue)
@@ -166,8 +196,13 @@ if (!fits) {
       await matchingAvailability.update({ status: "requested" });
     }
 
-    // 10) Notify therapist
-    await emailService.sendAppointmentRequestEmail(newAppointment, user, therapistUser);
+    // 10) Notify therapist. The appointment is already committed, so a mail failure
+    // must not surface as a booking failure — the client would retry and double-book.
+    try {
+      await emailService.sendAppointmentRequestEmail(newAppointment, user, therapistUser);
+    } catch (e) {
+      console.error("sendAppointmentRequestEmail failed for appt", newAppointment.id, e.message);
+    }
 
     return {
       message: "Appointment request sent successfully!",
@@ -621,8 +656,12 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
     });
     if (!fits) throw new Error("Therapist is not available at the requested time.");
 
+    // Keep scheduled_at on the CONFIRMED time until the therapist decides — moving it
+    // here used to destroy the original, so a rejected reschedule silently kept the
+    // new time. The requested time lives in proposed_slots until accepted.
     appointment.status = "reschedule_pending";
-    appointment.scheduled_at = dt.toUTC().toJSDate();
+    appointment.proposed_slots = [dt.toUTC().toISO()];
+    appointment.proposal_expires_at = DateTime.now().plus({ days: 2 }).toJSDate();
     await appointment.save();
 
     return { message: "Reschedule request sent successfully!" };
@@ -644,13 +683,19 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
     }
 
     if (decision === "accept") {
-      appointment.status = "confirmed";
-    } else if (decision === "reject") {
-      appointment.status = "confirmed"; // keep original time
-    } else {
+      const requested = (appointment.proposed_slots || [])[0];
+      if (!requested) throw new Error("No requested time recorded for this appointment.");
+      const requestedDT = DateTime.fromISO(String(requested), { zone: "utc" });
+      if (!requestedDT.isValid) throw new Error("Recorded reschedule time is invalid.");
+      appointment.scheduled_at = requestedDT.toJSDate();
+    } else if (decision !== "reject") {
       throw new Error("Invalid decision. Use 'accept' or 'reject'.");
     }
 
+    // Rejecting leaves scheduled_at on the original confirmed time.
+    appointment.status = "confirmed";
+    appointment.proposed_slots = [];
+    appointment.proposal_expires_at = null;
     await appointment.save();
     return { message: `Reschedule request ${decision}ed successfully!` };
   }
@@ -710,8 +755,18 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
       if (!appt) throw new Error("Appointment not found or unauthorized.");
       if (appt.status !== "reschedule_pending") throw new Error("No pending proposal.");
 
-      // Move time & confirm
+      if (appt.proposal_expires_at && new Date(appt.proposal_expires_at) < new Date()) {
+        throw new Error("This proposal has expired.");
+      }
+
+      // The chosen time must be one the therapist actually offered — otherwise a client
+      // could confirm any time at all, bypassing the therapist's availability entirely.
       const chosenUTC = chosen.toUTC().toJSDate();
+      const offered = (appt.proposed_slots || []).some((slot) => {
+        const dt = DateTime.fromISO(String(slot), { setZone: true });
+        return dt.isValid && dt.toUTC().toMillis() === chosenUTC.getTime();
+      });
+      if (!offered) throw new Error("chosen_time is not one of the proposed times.");
       await appt.update(
         {
           scheduled_at: chosenUTC,
@@ -722,14 +777,15 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
         { transaction: tx }
       );
 
-      // Remove newly chosen slot from availability
-      const dateStr = chosen.toFormat("yyyy-MM-dd");
-      const startStr = chosen.toFormat("HH:mm");
-      const endStr = chosen.plus({ minutes: 30 }).toFormat("HH:mm");
-      const slot = `${startStr}-${endStr}`;
-
+      // Remove newly chosen slot from availability. The slot string has to be built from
+      // the appointment's real duration — a hardcoded 30 minutes never matched a 50- or
+      // 60-minute stored slot, so the taken slot stayed open for other clients.
       const therapist = await Therapist.findByPk(appt.therapist_id, { transaction: tx });
       const therapistUserId = therapist.user_id;
+
+      const duration = Number(appt.session_duration) > 0 ? Number(appt.session_duration) : 30;
+      const dateStr = chosen.toFormat("yyyy-MM-dd");
+      const slot = `${chosen.toFormat("HH:mm")}-${chosen.plus({ minutes: duration }).toFormat("HH:mm")}`;
 
       try {
         await therapistAvailabilityService.deleteTimeSlot(therapistUserId, dateStr, slot);
@@ -765,23 +821,6 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
 
       return { message: "Reschedule proposal rejected. Original time kept." };
     });
-  }
-
-  /**
-   * Fetch all appointments for a therapist (param is therapist USER id)
-   */
-  async getAppointmentsByTherapist(therapistUserId) {
-    const therapist = await Therapist.findOne({
-      where: { user_id: therapistUserId },
-      attributes: ["id"],
-    });
-    if (!therapist) throw new Error("Therapist record not found.");
-
-    const appointments = await Appointments.findAll({
-      where: { therapist_id: therapist.id },
-      order: [["created_at", "DESC"]],
-    });
-    return appointments;
   }
 
   /**
@@ -1070,34 +1109,25 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
       order: [["scheduled_at", "ASC"]],
     });
   
+    // Return the real booked interval per date. This used to be expanded into fixed
+    // 30-minute keys, which never matched a therapist's own slot strings (e.g.
+    // "08:00-09:00"), so booked slots kept rendering as available.
     const occupied = {};
-    const rank = { confirmed: 3, reschedule_pending: 2, pending: 1 };
-  
+
     for (const r of rows) {
       const start = DateTime.fromJSDate(r.scheduled_at).setZone("Europe/London");
-      const duration = Number(r.session_duration || 30);
+      const duration = Number(r.session_duration) > 0 ? Number(r.session_duration) : 30;
       const end = start.plus({ minutes: duration });
-  
-      // expand to 30-min slots so 60-min appts block both half-hours
-      for (
-        let cursor = start;
-        cursor < end;
-        cursor = cursor.plus({ minutes: 30 })
-      ) {
-        const sH = cursor.toFormat("HH:mm");
-        const eH = cursor.plus({ minutes: 30 }).toFormat("HH:mm");
-        if (cursor.plus({ minutes: 30 }) > end) break; // only full 30-min blocks
-        const dateKey = cursor.toFormat("yyyy-MM-dd");
-        const slotKey = `${sH}-${eH}`;
-  
-        occupied[dateKey] = occupied[dateKey] || {};
-        const prev = occupied[dateKey][slotKey];
-        if (!prev || rank[r.status] > rank[prev]) {
-          occupied[dateKey][slotKey] = r.status; // keep highest-priority status
-        }
-      }
+      const dateKey = start.toFormat("yyyy-MM-dd");
+
+      occupied[dateKey] = occupied[dateKey] || [];
+      occupied[dateKey].push({
+        start: start.toFormat("HH:mm"),
+        end: end.toFormat("HH:mm"),
+        status: r.status,
+      });
     }
-  
+
     return occupied;
   }
 

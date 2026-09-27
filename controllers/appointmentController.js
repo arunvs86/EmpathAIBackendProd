@@ -87,8 +87,12 @@ class AppointmentController {
 
     async getTherapistAppointments(req, res) {
       try {
-        const therapistId = req.params.id; // therapist's User.id
-        const appointments = await appointmentService.getAppointmentsByTherapist(therapistId);
+        // This returns clients' names, emails and what they wrote about their mental
+        // health, so it must be the therapist's own list — being logged in is not enough.
+        if (req.user.role !== "therapist" || req.params.id !== req.user.id) {
+          return res.status(403).json({ error: "Unauthorized: You can only view your own appointments." });
+        }
+        const appointments = await appointmentService.getAppointmentsByTherapist(req.user.id);
         res.status(200).json(appointments);
       } catch (error) {
         console.error("Error in getTherapistAppointments:", error);
