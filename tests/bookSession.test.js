@@ -38,7 +38,7 @@ const { default: emailService } = await import("../services/email/emailService.j
 const DATE = "2026-07-28";
 const AT_9AM = "2026-07-28T09:00:00+01:00";
 
-function setup({ sessionDuration = 60, slots = ["09:00-10:00"], existing = [] } = {}) {
+function setup({ sessionDuration = 60, slots = ["09:00-10:00"], existing = [], languages = ["English"] } = {}) {
   User.findByPk.mockImplementation(async (id) =>
     id === "u1"
       ? { id: "u1", username: "Client", email: "client@example.com" }
@@ -48,6 +48,7 @@ function setup({ sessionDuration = 60, slots = ["09:00-10:00"], existing = [] } 
     id: "t1",
     user_id: "tu1",
     session_duration: sessionDuration,
+    languages_spoken: languages,
   });
   TherapistAvailability.findAll.mockResolvedValue([
     { selected_time_slots: { [DATE]: slots }, update: vi.fn() },
@@ -267,5 +268,42 @@ describe("bookSession — notification failures (item 12)", () => {
     await appointmentService.bookSession("u1", payload());
 
     expect(emailService.sendAppointmentRequestEmail).toHaveBeenCalled();
+  });
+});
+
+describe("bookSession — email language", () => {
+  const localeArg = () => emailService.sendAppointmentRequestEmail.mock.calls[0][3];
+
+  // The reported bug: booking a Spanish therapist sent them an English email.
+  it("asks for Spanish when the therapist practises in Spanish", async () => {
+    setup({ languages: ["Spanish"] });
+
+    await appointmentService.bookSession("u1", payload());
+
+    expect(localeArg()).toBe("es");
+  });
+
+  it("asks for Spanish when Spanish is one of several languages", async () => {
+    setup({ languages: ["English", "Spanish"] });
+
+    await appointmentService.bookSession("u1", payload());
+
+    expect(localeArg()).toBe("es");
+  });
+
+  it("keeps English for an English-only therapist", async () => {
+    setup({ languages: ["English"] });
+
+    await appointmentService.bookSession("u1", payload());
+
+    expect(localeArg()).toBe("en");
+  });
+
+  it("keeps English when the therapist has no languages recorded", async () => {
+    setup({ languages: null });
+
+    await appointmentService.bookSession("u1", payload());
+
+    expect(localeArg()).toBe("en");
   });
 });

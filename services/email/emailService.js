@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import axios from "axios";
 dotenv.config();
 import { DateTime } from "luxon";
+import { copyFor, fallbackNamesFor } from "./emailCopy.js";
 
 const uk = (d) =>
   DateTime.fromJSDate(new Date(d), { zone: "utc" })
@@ -96,45 +97,21 @@ class EmailService {
     //     await this.transporter.sendMail(mailOptions);
     //   }
 
-    async sendAppointmentRequestEmail(appointment, user, therapist) {
-      // 1) Format time in UK
+    async sendAppointmentRequestEmail(appointment, user, therapist, locale = "en") {
       const when = uk(appointment.scheduled_at);
-    
-      // 2) Email to the user (client)
-      const clientMail = {
+      const c = copyFor(locale);
+      const names = { clientName: user.username, therapistName: therapist.username, when };
+
+      await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: user.email,
-        subject: "Your EmpathAI Appointment Request Has Been Sent",
-        text: `Hello ${user.username},
-    
-    Your request to meet ${therapist.username} has been submitted for ${when} (UK time).
-    
-    The therapist will review and confirm. You'll get a separate email once it's approved and scheduled.
-    
-    Thank you for choosing EmpathAI.
-    
-    Warm regards,
-    The EmpathAI Team`,
-      };
-    
-      // 3) Email to the therapist
-      const proMail = {
+        ...c.requestClient(names),
+      });
+      await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: therapist.email,
-        subject: "New Appointment Request on EmpathAI",
-        text: `Hello ${therapist.username},
-    
-    You have a new appointment request from ${user.username} for ${when} (UK time).
-    
-    Please review and confirm the booking.
-    
-    Best regards,
-    The EmpathAI Team`,
-      };
-    
-      // 4) Send both
-      await this.transporter.sendMail(clientMail);
-      await this.transporter.sendMail(proMail);
+        ...c.requestTherapist(names),
+      });
     }
     
 
@@ -231,77 +208,44 @@ class EmailService {
 // }
 
 // inside emailService.js
-async sendAppointmentConfirmationEmail(appointment, clientUser, therapistUser, { clientLink, proLink }) {
-  const when = uk(appointment.scheduled_at); // or however you're formatting
+async sendAppointmentConfirmationEmail(appointment, clientUser, therapistUser, { clientLink, proLink }, locale = "en") {
+  const when = uk(appointment.scheduled_at);
+  const c = copyFor(locale);
+  const names = { clientName: clientUser.username, therapistName: therapistUser.username, when };
 
-  const clientMail = {
+  await this.transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: clientUser.email,
-    subject: "Your EmpathAI Appointment is Confirmed",
-    text: `Hello ${clientUser.username},
-
-Your appointment with ${therapistUser.username} is confirmed for ${when}.
-
-${
-  clientLink
-    ? `Join your session here:\n${clientLink}\n`
-    : `We will send you the session link before your appointment.\n`
-}
-
-Thank you for choosing EmpathAI.
-
-Warm regards,
-The EmpathAI Team`,
-  };
-
-  const proMail = {
+    ...c.confirmationClient({ ...names, link: clientLink }),
+  });
+  await this.transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: therapistUser.email,
-    subject: "New EmpathAI Appointment Booked",
-    text: `Hello ${therapistUser.username},
-
-You have a new appointment with ${clientUser.username} on ${when}.
-
-${
-  proLink
-    ? `Join your session here:\n${proLink}\n`
-    : `No session link generated yet. Please check your dashboard.\n`
-}
-
-Please note that all appointments are based on the UK time zone.
-
-The EmpathAI Team`,
-  };
-
-  await this.transporter.sendMail(clientMail);
-  await this.transporter.sendMail(proMail);
+    ...c.confirmationTherapist({ ...names, link: proLink }),
+  });
 }
 
 
-      async sendSlotTakenEmail(appointment, user, therapist) {
-        const scheduledAt = uk(appointment.scheduled_at);
-    
-        const mailOptions = {
+      async sendSlotTakenEmail(appointment, user, therapist, locale = "en") {
+        await this.transporter.sendMail({
           from: process.env.EMAIL_FROM,
           to: user.email,
-          subject: "Appointment Slot taken - EmpathAI",
-          text: `Hello ${user.username},\n\nYour appointment with ${therapist.username} has been taken by someone else in the queue.\n\nThank you for choosing EmpathAI.\n\nBest regards,\nEmpathAI Team`,
-        };
-    
-        await this.transporter.sendMail(mailOptions);
+          ...copyFor(locale).slotTaken({
+            clientName: user.username,
+            therapistName: therapist.username,
+          }),
+        });
       }
 
-      async sendRejectionEmail(appointment, user, therapist) {
-        const scheduledAt = uk(appointment.scheduled_at);
-    
-        const mailOptions = {
+      async sendRejectionEmail(appointment, user, therapist, locale = "en") {
+        await this.transporter.sendMail({
           from: process.env.EMAIL_FROM,
           to: user.email,
-          subject: "Appointment denied - EmpathAI",
-          text: `Hello ${user.username},\n\nYour appointment with ${therapist.username} has been cancelled due to scheduling reasons.\n\nThank you for choosing EmpathAI.\n\nBest regards,\nEmpathAI Team`,
-        };
-    
-        await this.transporter.sendMail(mailOptions);
+          ...copyFor(locale).rejection({
+            clientName: user.username,
+            therapistName: therapist.username,
+          }),
+        });
       }
 
   
@@ -437,109 +381,81 @@ Appointment stays at: ${oldWhen}
    * Therapist cancelled a slot and we cancelled the appointment.
    * Notify the client.
    */
-    async sendTherapistCancelledAppointmentEmail(appointment, clientUser, therapistUser) {
+    async sendTherapistCancelledAppointmentEmail(appointment, clientUser, therapistUser, locale = "en") {
       if (!clientUser?.email) return;
-      const when = uk(appointment.scheduled_at);
-  
-      const mail = {
+
+      await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: clientUser.email,
-        subject: "Your EmpathAI session was cancelled",
-        text: `Hello ${clientUser.username || "there"},
-  
-  Your appointment with ${therapistUser?.username || "your therapist"} on ${when} was cancelled because the therapist updated their schedule.
-  
-  You can book a new time in the app whenever you're ready.
-  
-  — EmpathAI`,
-      };
-  
-      await this.transporter.sendMail(mail);
+        ...copyFor(locale).therapistCancelled({
+          clientName: clientUser.username || fallbackNamesFor(locale).client,
+          therapistName: therapistUser?.username || fallbackNamesFor(locale).therapist,
+          when: uk(appointment.scheduled_at),
+        }),
+      });
     }
   
     /**
      * Therapist edited/deleted a slot and proposes new times to the client.
      * `alternatives` are ISO strings (Europe/London in your UI), we format them here.
      */
-    async sendTherapistProposedRescheduleEmail(appointment, clientUser, therapistUser, alternatives = []) {
+    async sendTherapistProposedRescheduleEmail(appointment, clientUser, therapistUser, alternatives = [], locale = "en") {
       if (!clientUser?.email) return;
-  
-      const when = uk(appointment.scheduled_at);
+
+      const names = fallbackNamesFor(locale);
       const altLines = (alternatives || [])
-        .map(a => {
-          const d = new Date(a);
-          return `• ${isNaN(d) ? a : d.toLocaleString()}`;
-        })
+        .map((a) => `• ${Number.isNaN(new Date(a).getTime()) ? a : uk(a)}`)
         .join("\n");
-  
-      const mail = {
+
+      await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: clientUser.email,
-        subject: "Your therapist proposed a new time",
-        text: `Hello ${clientUser.username || "there"},
-  
-  Your appointment with ${therapistUser?.username || "your therapist"} (previously ${when}) needs to be moved.
-  They've proposed the following alternative time(s):
-  
-  ${altLines || "• (Open the app to choose a new time)"}
-  
-  Please open EmpathAI to accept one of the options or pick a different slot.
-  
-  — EmpathAI`,
-      };
-  
-      await this.transporter.sendMail(mail);
+        ...copyFor(locale).proposedReschedule({
+          clientName: clientUser.username || names.client,
+          therapistName: therapistUser?.username || names.therapist,
+          when: uk(appointment.scheduled_at),
+          altLines,
+        }),
+      });
     }
   
     /**
      * Therapist updated schedule and we auto-rejected a pending request.
      */
-    async sendPendingRequestRejectedEmail(appointment, clientUser, therapistUser) {
+    async sendPendingRequestRejectedEmail(appointment, clientUser, therapistUser, locale = "en") {
       if (!clientUser?.email) return;
-  
-      const when = uk(appointment.scheduled_at);
-      const mail = {
+
+      const names = fallbackNamesFor(locale);
+      await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: clientUser.email,
-        subject: "Your request couldn’t be accepted",
-        text: `Hello ${clientUser.username || "there"},
-  
-  Your pending appointment request with ${therapistUser?.username || "the therapist"} for ${when} couldn’t be accepted because the therapist updated their availability.
-  
-  Please open EmpathAI to request a different time.
-  
-  — EmpathAI`,
-      };
-  
-      await this.transporter.sendMail(mail);
+        ...copyFor(locale).pendingRejected({
+          clientName: clientUser.username || names.client,
+          therapistName: therapistUser?.username || names.therapistPlain,
+          when: uk(appointment.scheduled_at),
+        }),
+      });
     }
   
     /**
      * (Optional) Small helper to send a summary back to the therapist after a bulk change.
      */
-    async sendTherapistAvailabilityChangeSummary(therapistUser, { action, date, slot, affectedCounts }) {
+    async sendTherapistAvailabilityChangeSummary(therapistUser, { action, date, slot, affectedCounts }, locale = "en") {
       if (!therapistUser?.email) return;
       const { cancelled = 0, proposed = 0, rejected = 0 } = affectedCounts || {};
-  
-      const subject = `Availability change processed: ${action}`;
-      const text = `Hello ${therapistUser.username || "Therapist"},
-  
-  Your availability change has been applied:
-  • Action: ${action}
-  • Date/Slot: ${date || "-"} ${slot ? `(${slot})` : ""}
-  
-  Affected clients:
-  • Cancelled: ${cancelled}
-  • Proposed reschedule: ${proposed}
-  • Auto-rejected (pending): ${rejected}
-  
-  — EmpathAI`;
-  
+
       await this.transporter.sendMail({
         from: process.env.EMAIL_FROM,
         to: therapistUser.email,
-        subject,
-        text,
+        ...copyFor(locale).availabilitySummary({
+          therapistName: therapistUser.username || fallbackNamesFor(locale).therapistTitle,
+          action,
+          date,
+          slot,
+          cancelled,
+          proposed,
+          rejected,
+        }),
       });
     }
 

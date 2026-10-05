@@ -879,6 +879,7 @@ import Therapist from "../../models/Therapist.js";
 import User from "../../models/User.js";
 import Appointments from "../../models/Appointments.js";
 import emailService from "../email/emailService.js"; // adjust relative path if needed
+import { resolveTherapistLocale } from "../email/emailCopy.js";
 
 
 import { splitOnDash, normalizeSlot, union } from "../../utils/timeSlots.js";
@@ -1239,7 +1240,7 @@ class TherapistAvailabilityService {
         );
   
         // Email affected pending users after commit
-        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id"], transaction: tx });
+        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id", "languages_spoken"], transaction: tx });
         const therapistUser = therapistRow ? await User.findByPk(therapistRow.user_id, { transaction: tx }) : null;
         const clientIds     = [...new Set(pendingRows.map(a => a.user_id))];
         const clients       = await User.findAll({
@@ -1252,7 +1253,7 @@ class TherapistAvailabilityService {
         afterCommit(async () => {
           for (const appt of pendingRows) {
             try {
-              await emailService.sendPendingRequestRejectedEmail(appt, clientMap[appt.user_id], therapistUser);
+              await emailService.sendPendingRequestRejectedEmail(appt, clientMap[appt.user_id], therapistUser, resolveTherapistLocale(therapistRow?.languages_spoken));
             } catch (e) {
               console.error("Email (reject_pending) failed for appt", appt.id, e.message);
             }
@@ -1263,7 +1264,7 @@ class TherapistAvailabilityService {
               date,
               slot,
               affectedCounts: { rejected: pendingRows.length },
-            });
+            }, resolveTherapistLocale(therapistRow?.languages_spoken));
           } catch {}
         });
       }
@@ -1308,7 +1309,7 @@ class TherapistAvailabilityService {
   
         // Email all affected (pending + confirmed + resched) after commit
         const affected      = [...pendingRows, ...confirmedRows, ...reschedRows];
-        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id"], transaction: tx });
+        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id", "languages_spoken"], transaction: tx });
         const therapistUser = therapistRow ? await User.findByPk(therapistRow.user_id, { transaction: tx }) : null;
         const clientIds     = [...new Set(affected.map(a => a.user_id))];
         const clients       = await User.findAll({
@@ -1321,7 +1322,7 @@ class TherapistAvailabilityService {
         afterCommit(async () => {
           for (const appt of affected) {
             try {
-              await emailService.sendTherapistProposedRescheduleEmail(appt, clientMap[appt.user_id], therapistUser, alternatives);
+              await emailService.sendTherapistProposedRescheduleEmail(appt, clientMap[appt.user_id], therapistUser, alternatives, resolveTherapistLocale(therapistRow?.languages_spoken));
             } catch (e) {
               console.error("Email (propose_reschedule) failed for appt", appt.id, e.message);
             }
@@ -1332,7 +1333,7 @@ class TherapistAvailabilityService {
               date,
               slot,
               affectedCounts: { proposed: toUpdateIds.length },
-            });
+            }, resolveTherapistLocale(therapistRow?.languages_spoken));
           } catch {}
         });
       }
@@ -1366,7 +1367,7 @@ class TherapistAvailabilityService {
   
         // Email all affected (now-cancelled) after commit
         const affected      = [...pendingRows, ...confirmedRows, ...reschedRows];
-        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id"], transaction: tx });
+        const therapistRow  = await Therapist.findByPk(therapistPk, { attributes: ["user_id", "languages_spoken"], transaction: tx });
         const therapistUser = therapistRow ? await User.findByPk(therapistRow.user_id, { transaction: tx }) : null;
         const clientIds     = [...new Set(affected.map(a => a.user_id))];
         const clients       = await User.findAll({
@@ -1379,7 +1380,7 @@ class TherapistAvailabilityService {
         afterCommit(async () => {
           for (const appt of affected) {
             try {
-              await emailService.sendTherapistCancelledAppointmentEmail(appt, clientMap[appt.user_id], therapistUser);
+              await emailService.sendTherapistCancelledAppointmentEmail(appt, clientMap[appt.user_id], therapistUser, resolveTherapistLocale(therapistRow?.languages_spoken));
             } catch (e) {
               console.error("Email (cancelled) failed for appt", appt.id, e.message);
             }
@@ -1390,7 +1391,7 @@ class TherapistAvailabilityService {
               date,
               slot,
               affectedCounts: { cancelled: affected.length },
-            });
+            }, resolveTherapistLocale(therapistRow?.languages_spoken));
           } catch {}
         });
       }

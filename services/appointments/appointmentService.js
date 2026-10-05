@@ -6,6 +6,7 @@ import Therapist from "../../models/Therapist.js";
 import TherapistAvailability from "../../models/TherapistAvailability.js";
 import User from "../../models/User.js";
 import emailService from "../email/emailService.js";
+import { resolveTherapistLocale } from "../email/emailCopy.js";
 import { DateTime } from "luxon";
 // import createMeetEvent from "../../utils/calender.js"; // if you still use it
 import { createGoogleMeetEvent } from "../googleCalendarService.js";
@@ -199,7 +200,12 @@ if (!fits) {
     // 10) Notify therapist. The appointment is already committed, so a mail failure
     // must not surface as a booking failure — the client would retry and double-book.
     try {
-      await emailService.sendAppointmentRequestEmail(newAppointment, user, therapistUser);
+      await emailService.sendAppointmentRequestEmail(
+        newAppointment,
+        user,
+        therapistUser,
+        resolveTherapistLocale(therapistDetails.languages_spoken)
+      );
     } catch (e) {
       console.error("sendAppointmentRequestEmail failed for appt", newAppointment.id, e.message);
     }
@@ -524,7 +530,8 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
               {
                 clientLink,
                 proLink,
-              }
+              },
+              resolveTherapistLocale(therapistRow.languages_spoken)
             );
           } catch (e) {
             console.error("sendAppointmentConfirmationEmail failed:", e.message);
@@ -548,7 +555,8 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
                 await emailService.sendSlotTakenEmail(
                   rej,
                   userMap[rej.user_id],
-                  therapistUser
+                  therapistUser,
+                  resolveTherapistLocale(therapistRow.languages_spoken)
                 );
               } catch (e) {
                 console.error("sendSlotTakenEmail failed:", e.message);
@@ -577,7 +585,8 @@ async handleAppointmentDecision(therapistUserId, appointmentId, decision) {
           await emailService.sendRejectionEmail(
             appointment,
             clientUser,
-            therapistUser
+            therapistUser,
+            resolveTherapistLocale(therapistRow.languages_spoken)
           );
         } catch (e) {
           console.error("sendRejectionEmail failed:", e.message);
